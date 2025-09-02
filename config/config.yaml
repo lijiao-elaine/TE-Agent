@@ -1,0 +1,37 @@
+# 工作流基础配置
+workflow:
+  name: "自动化测试工作流"
+  description: "用于批量执行测试用例并自动填充结果的工作流"
+
+# 执行超时配置（单位：秒）
+execution:
+  default_timeout: 60  # 步骤默认超时时间
+  pre_command_timeout: 30  # 预处理命令超时时间
+  post_command_timeout: 30  # 后置命令超时时间
+  sleep_time: 1 # 步骤中的子进程启动后，默认睡眠时间
+
+execute_machine:
+  remote_ip: 127.0.0.1
+  remote_os: ubuntu # harmony 需要单独处理，其他的linux机器统一处理
+
+# 测试结果和报告路径配置
+reports:
+  report_path: "reports"
+  screenshot_dir: "reports/screenshots"  # 截图保存目录
+  report_file: "reports/test_report.html"
+
+# 测试细则Word文档路径配置
+word_documents:
+  original_template_file: "merged_document.docx"  # 原始测试用例文档
+  result_output_file: "reports/test_report.docx"  # 填充结果后的文档
+
+# 日志配置
+logging:
+  level: "INFO"  # 日志级别：DEBUG/INFO/WARNING/ERROR
+  format: "%(asctime)s - %(levelname)s - %(message)s"  # 日志格式
+  log_path: "logs"
+
+# 进程管理配置
+process:
+  kill_timeout: 5  # 进程终止超时时间（秒）
+    

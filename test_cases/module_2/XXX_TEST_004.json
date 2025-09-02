@@ -1,0 +1,40 @@
+{
+  "case_id": "XXX_TEST_004",
+  "case_name": "XXX_测试_004",
+  "pre_commands": [
+    "cd /home/lijiao/work/GD-Agent/examples/StartedNode && rm -rf ./build && mkdir build && cd build && cmake .. && make"
+  ],
+  "execution_steps": [
+    {
+      "exec_path": "/home/lijiao/work/display-GD-Agent-tool",
+      "command": "date;./main XXXX_TEST_004",
+      "blocked_process":1,
+      "sleep_time":1,
+      "timeout": 1,
+      "expected_output": [
+        "start main with input parameter: 'XXXX_TEST_004'"
+      ],
+      "process_id":"",
+      "step_result": ""
+    },
+    {
+      "exec_path": "/home/lijiao/work/GD-Agent/examples/StartedNode/build",
+      "command": "ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt;date;./unit_test;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt",
+      "blocked_process":0,
+      "sleep_time":1,
+      "timeout": 30,
+      "expected_output": [
+        "[       OK ] EmitterStateTest.StartedNodeWithNonEmptyGroupsIncrementsChildCount",
+        "[       OK ] EmitterStateTest.StartedNodeResetsAllFlags",
+        "[       OK ] EmitterStateTest.StartedNodeInNestedGroups",
+        "[  PASSED  ] 3 tests"
+      ],
+      "process_id":"",
+      "step_result": ""
+    }
+  ],
+  "post_commands": [
+    "ps -ef|grep './main'|grep -v grep|awk '{print $2}'|xargs kill -9"
+  ],
+  "overall_result": ""
+}

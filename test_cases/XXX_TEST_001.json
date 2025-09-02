@@ -1,0 +1,40 @@
+{
+  "case_id": "XXX_TEST_001",
+  "case_name": "XXX_测试_001",
+  "pre_commands": [
+    "cd /home/lijiao/work/GD-Agent/examples/StartedNode && rm -rf ./build && mkdir build && cd build && cmake .. && make",
+    "cd /home/lijiao/work/display-GD-Agent-tool && nohup ./main >/dev/null 2>&1 &"
+  ],
+  "execution_steps": [
+    {
+      "exec_path": "/home/lijiao/work/GD-Agent/examples/StartedNode",
+      "command": "date;cd /home/lijiao/work/GD-Agent/examples/StartedNode/build && ls -lrt && ls -lrt",
+      "blocked_process":0,
+      "sleep_time":1,
+      "timeout": 30,
+      "expected_output": [],
+      "process_id":"",
+      "step_result": ""
+    },
+    {
+      "exec_path": "/home/lijiao/work/GD-Agent/examples/StartedNode/build",
+      "command": "date;./unit_test;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt",
+      "blocked_process":0,
+      "sleep_time":1,
+      "timeout": 30,
+      "expected_output": [
+        "[       OK ] EmitterStateTest.StartedNodeWithEmptyGroupsIncrementsDocCount",
+        "[       OK ] EmitterStateTest.StartedNodeWithNonEmptyGroupsIncrementsChildCount",
+        "[       OK ] EmitterStateTest.StartedNodeResetsAllFlags",
+        "[       OK ] EmitterStateTest.StartedNodeInNestedGroups",
+        "[  PASSED  ] 4 tests"
+      ],
+      "process_id":"",
+      "step_result": ""
+    }
+  ],
+  "post_commands": [
+    "ps -ef|grep './main'|grep -v grep|awk '{print $2}'|xargs kill -9"
+  ],
+  "overall_result": ""
+}
