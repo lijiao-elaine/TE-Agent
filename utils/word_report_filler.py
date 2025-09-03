@@ -4,6 +4,7 @@ from docx.shared import Inches
 from docx.text.paragraph import Paragraph
 from typing import Dict, List, Any
 import os
+from datetime import datetime
 import pdb
 # 兼容不同版本的python-docx库
 try:
@@ -137,12 +138,29 @@ class WordReportFiller:
                     if cell_text == "测试用例执行结果":
                         overall_row_idx = row_idx
                         overall_col_idx = col_idx 
+                    # 记录测试时间、测试人员、操作人员位置
+                    elif cell_text == "测试时间":
+                        test_time_row_idx = row_idx
+                        test_time_col_idx = col_idx 
+                    elif cell_text == "测试人员":
+                        test_person_row_idx = row_idx
+                        test_person_col_idx = col_idx 
+                    elif cell_text == "操作人员":
+                        operate_person_row_idx = row_idx
+                        operate_person_col_idx = col_idx
+                    else:
+                        continue
             
             # 回填总体结果
             if case_result["overall_result"] == "通过":
                 table.rows[overall_row_idx].cells[overall_col_idx + 1].text = "通过"
             else:
                 table.rows[overall_row_idx].cells[overall_col_idx + 1].text = "不通过"
+            # 回填测试时间、测试人员、操作人员
+            test_time = datetime.now()
+            table.rows[test_time_row_idx].cells[test_time_col_idx + 1].text = test_time.strftime("%Y-%m-%d %H:%M:%S")
+            table.rows[test_person_row_idx].cells[test_person_col_idx + 1].text = "auto run"
+            table.rows[operate_person_row_idx].cells[operate_person_col_idx + 1].text = "auto run"
             
             doc.save(word_file)
             return True
