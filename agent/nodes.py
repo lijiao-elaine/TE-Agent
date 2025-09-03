@@ -35,7 +35,7 @@ def run_pre_commands(state: TestState) -> Dict:
             success, stdout, stderr, returncode = CommandExecutor.run_command(
                 cmd, timeout=timeout
             )
-            # 按 merged_document.docx 要求：非0返回码视为失败
+            # 非0返回码视为失败
             if not success or returncode != 0:
                 raise RuntimeError(
                     f"预处理命令执行失败（返回码: {returncode}）\n错误输出: {stderr}"
@@ -46,7 +46,6 @@ def run_pre_commands(state: TestState) -> Dict:
         state.current_step = 0
         return {"current_step": 0}
     except Exception as e:
-        # 错误处理逻辑不变
         error_msg = f"预处理步骤失败: {str(e)}\n{traceback.format_exc()}"
         state.add_error(error_msg)
         state.add_log(f"预处理步骤异常: {str(e)}")
@@ -77,7 +76,7 @@ def run_test_step(state: TestState) -> Dict:
             state.add_log("所有测试步骤已执行完成")
             return {"current_step": step_idx}
 
-        # 执行当前步骤（按文档要求验证返回码和输出）
+        # 执行当前步骤
         step = steps[step_idx]
         state.add_log(f"开始执行步骤 {step_idx + 1}/{len(steps)}: {step['command']}")
         
@@ -119,7 +118,7 @@ def run_test_step(state: TestState) -> Dict:
         state.add_log(f"测试步骤执行完成, 终端输出将保存到：{log_file}")
         state.add_log(f"测试步骤执行完成（子进程返回码: {returncode}，0:退出，None:未退出）") 
 
-        # 记录步骤结果（包含返回码，适配文档表格中的“测试结果”列）
+        # 记录步骤信息（但还未判断步骤执行结果，仅用于先将步骤信息追加进结果列表）
         case_result["steps"].append({
             "step_idx": step_idx + 1,
             "command": step["command"],
@@ -137,7 +136,6 @@ def run_test_step(state: TestState) -> Dict:
             "case_result": case_result
         }
     except Exception as e:
-        # 错误处理逻辑不变
         error_msg = f"步骤 {state.current_step + 1} 执行失败: {str(e)}\n{traceback.format_exc()}"
         state.add_error(error_msg)
         state.add_log(f"步骤执行异常: {str(e)}")
@@ -156,7 +154,7 @@ def should_continue(state: TestState) -> str:
 
 def run_fill_result(state: TestState) -> Dict:
     """回填测试结果节点：按顺序回填每一个测试步骤的结果和用例总体执行结果（适配 merged_document.docx 中测试步骤）"""
-    # 等待3秒，待最后一个程序完成和所有前序程序直接的交互后，再检查各程序的终端输出并截图
+    # 等待3秒，待最后一个程序完成和所有前序程序直接的交互后，再检查各程序的终端输出并截图，这个等待时间需要再确认
     time.sleep(3)
     print("="*40+"run_fill_result"+"="*40)
 
@@ -250,7 +248,6 @@ def run_fill_result(state: TestState) -> Dict:
             "case_result": state.case_result
         }
     except Exception as e:
-        # 错误处理逻辑不变
         error_msg = f"回填结果失败: {str(e)}\n{traceback.format_exc()}"
         state.add_error(error_msg)
         #state.add_log(f"回填结果执行异常: {str(e)}")
@@ -264,7 +261,7 @@ def run_post_process(state: TestState) -> Dict:
         case_config = state.case_config
         state.add_log(f"开始后置处理 (用例: {case_config['case_name']})")
 
-        # 执行后置命令（按文档要求验证返回码）
+        # 执行后置命令，验证返回码
         post_commands = case_config.get("post_commands", [])
         timeout = config_manager.get("execution.post_command_timeout", 30)
         if post_commands:
@@ -290,7 +287,6 @@ def run_post_process(state: TestState) -> Dict:
             "logs": state.logs
         }
     except Exception as e:
-        # 错误处理逻辑不变
         error_msg = f"后置处理失败: {str(e)}\n{traceback.format_exc()}"
         state.add_error(error_msg)
         state.add_log(f"后置处理异常: {str(e)}")

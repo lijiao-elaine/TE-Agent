@@ -90,7 +90,7 @@ class ConfigManager:
         return self.get("logging.log_path", "logs")
 
     def get_report_file(self) -> str:
-        """获取截图保存目录"""
+        """获取测试报告保存目录"""
         return self.get("reports.report_file", "reports/test_report.html")
 
     def save_config(self) -> None:

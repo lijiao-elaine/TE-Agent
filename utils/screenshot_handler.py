@@ -77,7 +77,7 @@ class ScreenshotHandler:
         except FileNotFoundError:
             print("未安装wmctrl，跳过此步骤（可选安装：sudo apt install wmctrl）")
 
-        # 4. 验证焦点是否真正生效（关键！通过xdotool获取当前焦点窗口）
+        # 4. 验证焦点是否真正生效
         try:
             current_focus = subprocess.run(
                 'xdotool getwindowfocus',
@@ -104,7 +104,7 @@ class ScreenshotHandler:
         强制窗口置顶并获取焦点，绕过窗口管理器的策略限制
         window_id: 窗口ID（十六进制，如"0x80000d"）
         """
-        # 1. 确保环境变量正确（关键：指定当前显示和权限）
+        # 1. 确保环境变量正确
         env = {
             "DISPLAY": os.environ.get("DISPLAY", ":0"),  # 当前显示
             "XAUTHORITY": os.path.expanduser("~/.Xauthority")  # X11权限文件
@@ -208,7 +208,7 @@ class ScreenshotHandler:
         
         # 前置检查：确保目标窗口存在且可见
         try:
-            # 检查窗口是否处于映射状态（已显示）
+            # 检查窗口是否处于映射状态
             subprocess.run(
                 f'xwininfo -id {window_id}',  # xwininfo可查询窗口状态
                 shell=True,
@@ -246,7 +246,6 @@ class ScreenshotHandler:
                     os.remove(f)
             return False  
 
-        # 后续xwdtopnm和pnmtopng步骤保持不变...
         try:
             result = subprocess.run(
                 f"xwdtopnm {temp_xwd} > {temp_pnm}",
