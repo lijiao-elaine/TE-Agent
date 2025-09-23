@@ -2,23 +2,24 @@
   "case_id": "XXX_TEST_001",
   "case_name": "XXX_测试_001",
   "pre_commands": [
-    "cd /home/lijiao/work/GD-Agent/examples/StartedNode && rm -rf ./build && mkdir build && cd build && cmake .. && make",
-    "cd /home/lijiao/work/display-GD-Agent-tool && nohup ./main >/dev/null 2>&1 &"
+    "cd /home/lijiao/work/GD-Agent/examples/StartedNode/build && date && cmake .. && make && ls -lrt",
+    "cd /home/lijiao/work/GD-Agent/examples/StartedNode && date && rm -rf ./build && mkdir build && cp main.c build && cd build && cmake .. && make ",
+    "cd /home/lijiao/work/GD-Agent/examples/StartedNode/build && date && pwd && ls -lrt && gcc -o unit_test main.c && ls -lrt"
   ],
   "execution_steps": [
     {
       "exec_path": "/home/lijiao/work/GD-Agent/examples/StartedNode",
-      "command": "date;cd /home/lijiao/work/GD-Agent/examples/StartedNode/build && ls -lrt && ls -lrt",
+      "command": "date; pwd; cat /etc/*lease; uname -a; ls -lrt",
       "blocked_process":0,
       "sleep_time":1,
       "timeout": 30,
-      "expected_output": [],
-      "process_id":"",
-      "step_result": ""
+      "expected_output": [
+        ""
+      ]
     },
     {
       "exec_path": "/home/lijiao/work/GD-Agent/examples/StartedNode/build",
-      "command": "date;./unit_test;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt",
+      "command": "date;./unit_test;cat /etc/*lease; uname -a;ifconfig;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt",
       "blocked_process":0,
       "sleep_time":1,
       "timeout": 30,
@@ -28,13 +29,11 @@
         "[       OK ] EmitterStateTest.StartedNodeResetsAllFlags",
         "[       OK ] EmitterStateTest.StartedNodeInNestedGroups",
         "[  PASSED  ] 4 tests"
-      ],
-      "process_id":"",
-      "step_result": ""
+      ]
     }
   ],
   "post_commands": [
-    "ps -ef|grep './main'|grep -v grep|awk '{print $2}'|xargs kill -9"
-  ],
-  "overall_result": ""
+    "date; pwd; ls -lrt;",
+    "ps -ef|grep './main'|grep -v grep|awk '{print $2}'|xargs -r kill -9"
+  ]
 }
