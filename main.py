@@ -13,47 +13,15 @@ from test_case_manager.test_case_manager import TestCaseManager
 from config.config_manager import ConfigManager  # 导入配置管理器
 import os
 
-def run_single_case(case_path: str):
-    """执行单个测试用例并回填结果"""
-    try:
-        case_path_obj = Path(case_path)
-        # 加载配置管理器
-        config_manager = ConfigManager()
-        # 加载测试用例
-        case_manager = TestCaseManager()
-        test_case = case_manager.load_test_case(case_path_obj)
-        case_name = test_case.get("case_name", "未知用例")
-        print(f"开始执行单个测试用例: {case_name} (文件: {str(case_path_obj)})")
-
-        # 初始化Agent并执行
-        agent = TestExecuteAgent()
-        final_state = agent.run(test_case)
-
-        # 输出执行 summary
-        print("\n" + "="*50)
-        print(f"用例 '{case_name}' 执行完成")
-        print(f"最终结果: {final_state['case_result'].get('overall_result', '未知')}")
-        print(f"结果文档: {config_manager.get_result_word_file()}")  # 从配置获取结果文档路径
-        print(f"错误数量: {len(final_state['errors'])}")
-        print(f"日志数量: {len(final_state['logs'])}")
-        print("="*50 + "\n")
-
-        # 打印错误详情（如有）
-        if final_state['errors']:
-            print("错误详情:")
-            for i, error in enumerate(final_state['errors'], 1):
-                print(f"\n错误 {i}:\n{error}")
-
-        return final_state['case_result'].get("overall_result", "未知") == "通过"
-
-    except Exception as e:
-        print(f"\n执行单个测试用例时发生致命错误: {str(e)}")
-        print(traceback.format_exc())
-        return False
-
 def get_test_cases_by_module(module_path: str = None) -> list:
     """根据模块路径过滤用例"""
-    case_manager = TestCaseManager()
+    config_manager = ConfigManager()
+    remote_os = config_manager.get_remote_os()
+    remote_ip = config_manager.get_remote_ip()
+    if remote_ip != "127.0.0.1" and remote_os == "HarmonyOS":
+        case_manager = TestCaseManager("test_cases_ohos")
+    else:
+        case_manager = TestCaseManager()
     all_cases = case_manager.get_all_test_case_paths()
     
     if not module_path:
@@ -128,11 +96,15 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # 执行单个用例或所有用例
+    filtered_cases = []
     if args.testcase:
         case_path = Path(args.testcase)
         if case_path.exists():
-            success = run_single_case(str(case_path))
-            exit(0 if success else 1)
+            test_case = str(case_path.absolute())
+            print(f"待执行的单个用例为：{test_case}")
+            filtered_cases.append(test_case)
+            #success = run_single_case(str(case_path))
+            #exit(0 if success else 1)
         else:
             print(f"错误: 测试用例文件不存在 - {case_path}")
             exit(1)
@@ -140,14 +112,14 @@ if __name__ == "__main__":
         # 获取模块过滤后的用例列表
         filtered_cases = get_test_cases_by_module(args.module)
         
-        # 将用例列表存入环境变量（用分号分隔，支持路径含空格）
-        os.environ["FILTERED_TEST_CASES"] = ";".join(filtered_cases)
+    # 将用例列表存入环境变量（用分号分隔，支持路径含空格）
+    os.environ["FILTERED_TEST_CASES"] = ";".join(filtered_cases)
         
-        # 构建pytest参数， 加 "-s", 参数可以禁止pytest的输出捕获
-        pytest_args = ["-v",  __file__] 
-        if args.report:
-            pytest_args.extend([f"--html={args.report}", "--self-contained-html"])
+    # 构建pytest参数， 加 "-s", 参数可以禁止pytest的输出捕获
+    pytest_args = ["-v",  __file__] 
+    if args.report:
+        pytest_args.extend([f"--html={args.report}", "--self-contained-html"])
         
-        # 执行测试
-        pytest.main(pytest_args)
+    # 执行测试
+    pytest.main(pytest_args)
     

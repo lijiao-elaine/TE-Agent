@@ -1,7 +1,7 @@
 import os
 import shutil
 from pathlib import Path
-
+import subprocess
 import pytest
 from test_case_manager.test_case_manager import TestCaseManager
 from config.config_manager import ConfigManager  # 导入ConfigManager
@@ -41,12 +41,39 @@ def pytest_configure(config):
         config.option.self_contained_html = True
         print(f"钩子函数pytest_configure中设置报告路径: {config.option.htmlpath}")
 
+def check_hdc_connection(remote_ip: str, hdc_port: str):
+    terminal_cmd = ["hdc","list", "targets"]
+    proc = subprocess.run(# 阻塞启动xterm终端，执行用例预处理和后置步骤指令
+                terminal_cmd,
+                shell=False,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+                )
+    if remote_ip not in proc.stdout.strip():
+        hdc_cmd = ["hdc","tconn", f"{remote_ip}:{hdc_port}"]
+        result = subprocess.run(# 阻塞启动xterm终端，执行用例预处理和后置步骤指令
+                hdc_cmd,
+                shell=False,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+                )
+        if result.stdout.strip() == "Connect OK":
+            return True
+        else:
+            return False
+    else:
+        return True
+
 @pytest.fixture(scope="session", autouse=True)
 def init_test_session(request):
     """初始化测试会话"""
     try:
         config_manager = ConfigManager()
         case_manager = TestCaseManager()
+        remote_ip = config_manager.get_remote_ip()
+        remote_os = config_manager.get_remote_os()
 
         # 创建报告目录和截图目录、创建日志目录
         report_dir = Path(config_manager.get_report_file()).parent
@@ -69,11 +96,20 @@ def init_test_session(request):
             )
 
         print(f"测试报告将生成至: {os.path.abspath(REPORT_PATH)}")
-        
+
+        if remote_ip != "127.0.0.1" and remote_os == "HarmonyOS": 
+            #print("开始检查远程鸿蒙系统 hdc 连接")
+            hdc_port = config_manager.get_hdc_port()
+            hdc_status = check_hdc_connection(remote_ip, hdc_port)
+            if not hdc_status:
+                #print("远程鸿蒙系统 hdc 连接失败")
+                raise RuntimeError(f"远程鸿蒙系统 hdc 连接失败")
+            else:
+                print("远程鸿蒙系统 hdc 连接成功")
         yield # 执行用例
 
         print(f"\n测试完成，结果已填充到 {config_manager.get_result_word_file()}")
-        if REPORT_PATH and os.path.exists(REPORT_PATH):
+        if REPORT_PATH and Path(REPORT_PATH).exists:
             print(f"HTML测试报告已生成: {os.path.abspath(REPORT_PATH)}")
         elif REPORT_PATH:
             print(f"警告: HTML测试报告文件不存在 - {os.path.abspath(REPORT_PATH)}")

@@ -303,7 +303,7 @@ class ScreenshotHandler:
             # 1. 边界处理：目标行≤0时无需滚动
             lines_to_roll = line_number - terminal_line_num
             if lines_to_roll < 0:
-                print("目标行号无需滚动")
+                #print("目标行号无需滚动")
                 return True
             
             # 2. 核心计算：line_number除以20向上取整得到翻页次数, 公式：翻页次数 = ceil(目标行号 / 20)，单次翻页滚动20行
@@ -386,7 +386,7 @@ class ScreenshotHandler:
                 stderr=subprocess.PIPE,
                 text=True
             )
-            #print(f"已向窗口{window_id}发送关闭信号")
+            #print(f"已向窗口{window_id}发送关闭信号，subprocess.run执行关闭xterm窗口的返回码：{result.returncode}")
             return True
             
         except subprocess.CalledProcessError as e:
@@ -482,7 +482,7 @@ class ScreenshotHandler:
                         #else:
                         print("滚动操作失败，将截图当前视图")
 
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
                 screenshot_path = os.path.abspath(os.path.join(screenshot_dir, f"{screenshot_name}_{timestamp}.png"))
                 
                 # 10. 截图并保存

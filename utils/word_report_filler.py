@@ -100,7 +100,7 @@ class WordReportFiller:
                 placeholder_elem = error_para._element
 
     @staticmethod
-    def fill_case_results(word_file: str, case_result: Dict[str, Any]) -> bool:
+    def fill_case_results_old(word_file: str, case_result: Dict[str, Any]) -> bool:
         """将测试结果填充到Word文档的对应表格中"""
         doc = Document(word_file)
         
@@ -168,4 +168,73 @@ class WordReportFiller:
             raise RuntimeError(f"回填Word报告失败: {str(e)}")
             return False
 
+    @staticmethod
+    def fill_case_results(word_file: str, step_num: int, case_result: Dict[str, Any]) -> bool:
+        """将测试结果填充到Word文档的对应表格中"""
+        doc = Document(word_file)
+        
+        try:
+            table = WordReportFiller.find_case_table(doc, case_result["case_id"])
+            step_results = case_result["execution_steps"]
+            result_len = len(step_results)
+            
+            for row_idx, row in enumerate(table.rows):
+                for col_idx, cell in enumerate(row.cells):
+                    cell_text = "\n".join([para.text for para in cell.paragraphs]).strip()                 
+                    # 处理步骤结果（通过/不通过）
+                    if "□通过" in cell_text and "□不通过" in cell_text and "其它____" in cell_text:
+                        step_idx = int(row.cells[0].text) - 1
+                        if result_len > 0: # run_test_step 中，执行case_result["steps"].append前发生了Exception，结果数比执行步数少，只回填有结果的步骤
+                            if step_num == -1: # 预处理失败
+                                pass
+                            elif step_idx + 1 <= step_num: # 预处理成功，但仅执行了 step_num 个测试步骤，也只回填这些步骤的结果
+                                if step_results[step_idx]["step_result"] == "通过":
+                                    for para in cell.paragraphs:
+                                        para.text = para.text.replace("□通过", "☑通过")
+                                else:
+                                    for para in cell.paragraphs:
+                                        para.text = para.text.replace("□不通过", "☑不通过")
+                                #print(f"步骤{row.cells[0].text}的执行结果，回填入用例表格第{row_idx + 1}行第{col_idx + 1}列")
+
+                                # 回填每个步骤的截图, 在"其它____"后追加
+                                screenshot_paths = step_results[step_idx].get("screenshot_path", [])
+                                if screenshot_paths and isinstance(screenshot_paths, list):
+                                    WordReportFiller.insert_images_after_placeholder(
+                                        cell, 
+                                        screenshot_paths,
+                                        placeholder="其它____",
+                                        max_width=1.0  # 图片最大宽度
+                                    )
+                            else:
+                                pass
+                            result_len -= 1
+                    # 记录总体结果位置
+                    if cell_text == "测试用例执行结果":
+                        overall_row_idx = row_idx
+                        overall_col_idx = col_idx 
+                    # 记录测试时间、测试人员、操作人员位置
+                    elif cell_text == "测试时间":
+                        test_time_row_idx = row_idx
+                        test_time_col_idx = col_idx 
+                    elif cell_text == "测试人员":
+                        test_person_row_idx = row_idx
+                        test_person_col_idx = col_idx 
+                    elif cell_text == "操作人员":
+                        operate_person_row_idx = row_idx
+                        operate_person_col_idx = col_idx
+                    else:
+                        continue
+            
+            # 回填总体结果、测试时间、测试人员、操作人员
+            table.rows[overall_row_idx].cells[overall_col_idx + 1].text = case_result["overall_result"]
+            test_time = datetime.now()
+            table.rows[test_time_row_idx].cells[test_time_col_idx + 1].text = test_time.strftime("%Y-%m-%d %H:%M:%S")
+            table.rows[test_person_row_idx].cells[test_person_col_idx + 1].text = "auto run"
+            table.rows[operate_person_row_idx].cells[operate_person_col_idx + 1].text = "auto run"
+            
+            doc.save(word_file)
+            return True
+        except Exception as e:
+            raise RuntimeError(f"回填Word报告失败: {str(e)}")
+            return False
 
