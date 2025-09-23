@@ -1,7 +1,7 @@
 # 工作流基础配置
 workflow:
   name: "自动化测试工作流"
-  description: "用于批量执行测试用例并自动填充结果的工作流"
+  description: "用于批量自动化执行测试用例并生成测试报告的工作流"
 
 # 执行超时配置（单位：秒）
 execution:
@@ -11,8 +11,11 @@ execution:
   sleep_time: 1 # 步骤中的子进程启动后，默认睡眠时间
 
 execute_machine:
-  remote_ip: 127.0.0.1
-  remote_os: ubuntu # harmony 需要单独处理，其他的linux机器统一处理
+  remote_ip: "127.0.0.1" # 127.0.0.1  ubuntu remote: 192.168.137.100 （本地：192.168.137.110/255.255.255.0） harmonyos remote: 192.168.0.6 （本地： 192.168.0.110/255.255.255.0） 
+  remote_os: ubuntu #   HarmonyOS 需要单独处理，其他的linux机器，如 ubuntu 统一处理
+  remote_user: "root"
+  remote_passwd: "Mind@123"  #  ubuntu remote: Mind@123 , 鸿蒙系统需要密码
+  hdc_port: "5555" #  仅 HarmonyOS 需要需要配置，是 hdc shell 远程连接鸿蒙设备用的端口
 
 # 测试结果和报告路径配置
 reports:
@@ -34,4 +37,8 @@ logging:
 # 进程管理配置
 process:
   kill_timeout: 5  # 进程终止超时时间（秒）
-    
+
+# 环境变量管理
+env:
+  DISPLAY: ":0"  # 定义 X 服务器的图形界面的环境变量，有些环境应该配置 ":1"，按实际情况配置
+       

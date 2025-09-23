@@ -63,23 +63,35 @@ class ConfigManager:
 
     def get_result_word_file(self) -> str:
         """获取填充结果后的Word文档路径"""
-        return self.get("word_documents.result_output_file", "reports/filled_test_report.docx")
+        return self.get("word_documents.result_output_file", "reports/test_report.docx")
 
     def get_default_timeout(self) -> int:
         """获取默认步骤超时时间（秒）"""
         return self.get("execution.default_timeout", 60)
     
     def get_default_sleep_time(self) -> int:
-        """获取默认步骤超时时间（秒）"""
+        """获取步骤执行等待时间（秒）"""
         return self.get("execution.sleep_time", 1)
 
+    def get_remote_os(self) -> str:
+        """获取远程执行命令的开发板os类型"""
+        return self.get("execute_machine.remote_os", "ubuntu")
+
     def get_remote_ip(self) -> str:
-        """获取默认步骤超时时间（秒）"""
+        """获取远程执行命令的开发板ip地址"""
         return self.get("execute_machine.remote_ip", "127.0.0.1")
 
-    def get_remote_os(self) -> str:
-        """获取默认步骤超时时间（秒）"""
-        return self.get("execute_machine.remote_os", "ubuntu")
+    def get_remote_user(self) -> str:
+        """获取远程执行命令的开发板登录用户名"""
+        return self.get("execute_machine.remote_user", "user")
+
+    def get_remote_passwd(self) -> str:
+        """获取远程执行命令的开发板登录密码"""
+        return self.get("execute_machine.remote_passwd", "Mind@123")
+
+    def get_hdc_port(self) -> str:
+        """获取远程执行命令的开发板登录密码"""
+        return self.get("execute_machine.hdc_port", "8710")
 
     def get_screenshot_dir(self) -> str:
         """获取截图保存目录"""
