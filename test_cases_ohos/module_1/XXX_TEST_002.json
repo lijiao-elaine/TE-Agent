@@ -1,0 +1,35 @@
+{
+  "case_id": "XXX_TEST_002",
+  "case_name": "XXX_测试_002",
+  "pre_commands": [
+    "date && cd /data && pwd && ls -lrt",
+    "cd /data && pwd && ls -lrt && cd /data/home/lijiao/work/zero_project_test  && pwd && ls -lrt && rm -f distributed_filesystem_GN_Test*.xml && chmod +x distributed_filesystem_GN_Test && ls -lrt"
+  ],
+  "execution_steps": [
+    {
+      "exec_path": "/data/home/lijiao/work/zero_project_test",
+      "command": "date; pwd; uname -a; ls -lrt",
+      "blocked_process":0,
+      "sleep_time":1,
+      "timeout": 1,
+      "expected_output": [
+        "/data/home/lijiao/work/zero_project_test"
+      ]
+    },
+    {
+      "exec_path": "/data/home/lijiao/work/zero_project_test",
+      "command": "ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt;date;printf '111\\nyes\\n'|./distributed_filesystem_GN_Test;uname -a;ifconfig;ls -lrt;",
+      "blocked_process":1,
+      "sleep_time":3,
+      "timeout": 30,
+      "expected_output": [
+        "[----------] 15 tests from DistributedFileSystemTest",
+        "Please input deviceId[current value: 111]"
+      ]
+    }
+  ],
+  "post_commands": [
+    "cd /data/home/lijiao/work/zero_project_test && ls -lrt &&  chmod 644 distributed_filesystem_GN_Test && ls -lrt",
+    "ps -A|grep distributed_fil|grep -v grep|cut -d' ' -f3|xargs -r kill -9"
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "case_id": "XXX_TEST_001",
+  "case_name": "XXX_测试_001",
+  "pre_commands": [
+    "date ; cd /data ; pwd ; ls -lrt ; cd /data/home/lijiao/work/zero_project_test ; pwd ; ls -lrt ; rm -f BLACKBORAD_GN_Test*.xml ; chmod +x BLACKBORAD_GN_Test ; ls -lrt"
+  ],
+  "execution_steps": [
+    {
+      "exec_path": "/data/home/lijiao/work/zero_project_test",
+      "command": "date; pwd; uname -a; ls -lrt",
+      "blocked_process":0,
+      "sleep_time":1,
+      "timeout": 30,
+      "expected_output": [
+        "/home/lijiao/work/zero_project_test"
+      ]
+    },
+    {
+      "exec_path": "/data/home/lijiao/work/zero_project_test",
+      "command": "date;./BLACKBORAD_GN_Test;uname -a;ifconfig;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt",
+      "blocked_process":0,
+      "sleep_time":10,
+      "timeout": 30,
+      "expected_output": [
+        "[       OK ] BlackBoardTest.test08_registerHandler_param_is_null",
+        "[       OK ] BlackBoardTest.test04_send_pdataBuff_is_valid",
+        "[  PASSED  ] 9 tests."
+      ]
+    }
+  ],
+  "post_commands": [
+    "date && cd /data && pwd && ls -lrt && cd /data/home/lijiao/work/zero_project_test && ls -lrt &&  chmod 644 BLACKBORAD_GN_Test && ls -lrt",
+    "ll /data/"
+  ]
+}
