@@ -39,11 +39,17 @@ sudo apt install x11-apps  # 包含xwd工具
 sudo apt install netpbm -y #安装pnmtopng
 sudo apt install xdotool # 安装窗口控制工具
 sudo apt install wmctrl
+sudo apt-get install expect
 ```
 
 ### 3. 配置系统参数
 
 项目使用YAML配置文件管理各种参数。默认配置文件位于 `config/config.yaml`：
+
+如果需要修改任何配置，如：远程执行用例的机器os类型、ip地址、登录用户名和密码，或 生成报告的地址、归档日志的地址等，直接修改 `config/config.yaml` 中对应配置项的值即可。
+
+scp unit_test root@192.168.137.100:/home/lijiao/work/GD-Agent/examples/StartedNode/build/
+scp main root@192.168.137.100:/home/lijiao/work/display-GD-Agent-tool/
 
 ## 使用方法
 
@@ -59,19 +65,17 @@ sudo apt install wmctrl
   "case_id": "XXX_TEST_001", # 用例id，需要与word测试细则文档中的用例“标识”一致且唯一，必填
   "case_name": "XXX_测试_001", # 用例id，需要与word测试细则文档中的用例“测试用例名称”一致，必填
   "pre_commands": [ # 用例预处理步骤
-    "cd /home/lijiao/work/GD-Agent/examples/StartedNode && rm -rf ./build && mkdir build && cd build && cmake .. && make",
-    "cd /home/lijiao/work/display-GD-Agent-tool && nohup ./main >/dev/null 2>&1 &"
+    "cd /home/lijiao/work/GD-Agent/examples/StartedNode && rm -rf ./build && mkdir build && cp main.c build && ls -lrt",
+    "cd /home/lijiao/work/GD-Agent/examples/StartedNode/build && pwd && ls -lrt && gcc -o unit_test main.c && ls -lrt"
   ],
-  "execution_steps": [ # 每个用例的多个执行步骤，其中步骤的数量和顺序，应该严格与word测试细则文档中一致，否则填写测试结果时会发生错乱
+  "execution_steps": [ # 每个用例的多个执行步骤，其中步骤的数量和顺序，应该严格与word测试细则文档中一致，否则填写测试结果时会发生错乱，必填
     {
       "exec_path": "/home/lijiao/work/GD-Agent/examples/StartedNode", # 必填
       "command": "date;cd /home/lijiao/work/GD-Agent/examples/StartedNode/build && ls -lrt && ls -lrt", # 必填
       "blocked_process":0, # 表明 command 启动的进程是否始终保持在前台不退出，不退出即为阻塞式的，需要配置为1，否则为0
       "sleep_time":1, # 如果blocked_process值为0，则sleep_time必须配置，且不能过大，比当前步骤的command执行时长稍长1秒左右即可
       "timeout": 30,
-      "expected_output": [],
-      "process_id":"",
-      "step_result": ""
+      "expected_output": [] # 预期结果检查时，用于检查程序执行终端是否打印这些字符串以判断用例成功与否
     },
     {
       "exec_path": "/home/lijiao/work/GD-Agent/examples/StartedNode/build",
@@ -85,20 +89,33 @@ sudo apt install wmctrl
         "[       OK ] EmitterStateTest.StartedNodeResetsAllFlags",
         "[       OK ] EmitterStateTest.StartedNodeInNestedGroups",
         "[  PASSED  ] 4 tests"
-      ],
-      "process_id":"",
-      "step_result": ""
+      ]
     }
   ],
   "post_commands": [ # 用例后处理步骤
     "ps -ef|grep './main'|grep -v grep|awk '{print $2}'|xargs kill -9"
-  ],
-  "overall_result": ""
+  ]
 }
 ```
 
-- pre_commands、post_commands、以及execution_steps中的command的每一个""中的shell指令都是通过subprocess.run或subprocess.Popen起独立子进程执行的，仅改变子进程的状态或目录，不影响父进程，所以在尽量在一个""内通过&&串联完成一个完整的流程；
+- pre_commands、post_commands、以及execution_steps中的command的每一个""中的shell指令都是通过subprocess.Popen起独立子进程执行的，仅改变子进程的状态或目录，不影响父进程，所以在尽量在一个""内通过&&或;串联完成一个完整的流程；
 
+
+### 用例运行环境依赖配置
+
+如果是在上位机运行工具，下位机运行用例可执行程序，则需要修改以下配置：
+
+1. 修改下位机的 ~/.bashrc ，将其中的如下语句注释，因为以下语句会将xterm终端的标题强行修改为user@host:dir：
+
+``` bash
+case "$TERM" in
+xterm*|rxvt*)
+    PS1="\[\e]0;${debian_chroot:+($debian_chroot)}\u@\h: \w\a\]$PS1"
+    ;;
+*)
+    ;;
+esac
+```
 
 #### 执行用例
 
@@ -123,9 +140,9 @@ python main.py --testcase test_cases/test_case_1.json
 
 ### 参数说明
 
-- `--t`: 待执行的单个测试用例路径 (可选，如：test_cases/test_case_1.json)
-- `--m`: 待执行的测试用例模块 (可选，如：test_cases/module_1)
-- `--r`: 生成的测试报告路径 (可选，默认: reports/test_report.html)
+- `-t`: 待执行的单个测试用例路径 (可选，如：test_cases/test_case_1.json)
+- `-m`: 待执行的测试用例模块 (可选，如：test_cases/module_1)
+- `-r`: 生成的测试报告路径 (可选，默认: reports/test_report.html)
 
 ## 工作流程
 
@@ -154,6 +171,8 @@ TE_Agent/
 │   └── test_case_manager.py   # 测试用例管理类
 ├── test_cases/                # 用例文件，每个用例文件由一个json文件定义
 │   └── test_case_1.json       # case_name要与word测试细则文档中用例表格的“测试用例名称”完全一致，case_id也要与“标识”完全一致
+├── test_cases_ohos/                # 鸿蒙系统下的用例文件，每个用例文件由一个json文件定义
+│   └── test_case_1.json
 ├── reports/                # 报告和截图
 │   └── screenshots/
 ├── utils/                  # 工具函数
