@@ -40,6 +40,8 @@ def pytest_configure(config):
         config.option.htmlpath = os.path.abspath(REPORT_PATH)
         config.option.self_contained_html = True
         print(f"钩子函数pytest_configure中设置报告路径: {config.option.htmlpath}")
+    else:
+        REPORT_PATH = config.option.htmlpath
 
 def check_hdc_connection(remote_ip: str, hdc_port: str):
     terminal_cmd = ["hdc","list", "targets"]

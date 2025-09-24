@@ -144,6 +144,19 @@ python main.py --testcase test_cases/test_case_1.json
 - `-m`: 待执行的测试用例模块 (可选，如：test_cases/module_1)
 - `-r`: 生成的测试报告路径 (可选，默认: reports/test_report.html)
 
+#### Web端演示 TE-Agent工具
+
+1. 默认端口运行： 8501 
+```bash
+streamlit run TE-Agent_streamlit.py 
+```
+
+2. 指定端口运行，如下 8081
+```bash
+streamlit run TE-Agent_streamlit.py --server.port 8081
+```
+
+
 ## 工作流程
 
 TE-Agent的工作流程包含以下步骤：
@@ -183,8 +196,10 @@ TE_Agent/
 │   └── command_executor.py
 ├── conftest.py        # pytest文件
 ├── main.py            # 入口
+├── README.md  # readme文档
 ├── requirements.txt  # python依赖包列表
-└── merged_word.docx  # 测试细则文档，用于读取文本用例
+├── TE-Agent_streamlit.py  # streamlit 脚本，用于在Web页面演示TE-Agent工具用法
+└── merged_word.docx  # 测试细则文档，用于读取文本用例，也是还未回填测试结果的测试报告
 ```
 
 ## 示例测试项目
