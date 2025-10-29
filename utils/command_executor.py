@@ -1,5 +1,6 @@
 import subprocess
 import time
+import os
 from typing import Dict, List, Tuple, Optional, Any
 
 class CommandExecutor:
@@ -35,6 +36,109 @@ class CommandExecutor:
                 err = f"命令执行异常: {str(e)}"
                 return (False, "", err, -2)  # 其他错误返回码设为-2
     
+    @staticmethod
+    def clear_expected_logfile(expected_log: str, remote_os: str, remote_ip: str, remote_user:str, remote_passwd:str, remote_hdc_port:str,
+        output_file: str) -> Tuple[bool, str, str, int]:
+        #print(f"进入函数：clear_expected_logfile, 备份日志:{expected_log}")
+        if remote_ip == "127.0.0.1":
+            terminal_commands = (
+                'export TERM=xterm-256color; '
+                'stty cooked; '
+                f'echo "当前指令执行目录：$(pwd)；执行日志备份指令: mv {expected_log} {expected_log}.bak" 2>&1 | tee -a {output_file}; '
+                f'(mv {expected_log} {expected_log}.bak 2>/dev/null;exit;) 2>&1 | tee -a {output_file}; '
+            )
+        else:
+            if remote_os != "HarmonyOS":
+                print("CommandExecutor.clear_expected_logfile: 待验证远程非鸿蒙系统下，预处理备份清理日志的逻辑")
+                terminal_commands = ( 
+                    'export TERM=xterm-256color; '
+                    f'expect -c "set timeout 30; '
+                    f'spawn ssh {remote_user}@{remote_ip}; '
+                    'expect { \n'
+                    '   \\"Are you sure you want to continue connecting (yes/no)?\\" { send \\"yes\\r\\"; exp_continue; } \n'
+                    '   -re {[Pp]assword:?\s*|口令:?\s*} { send \\"' + remote_passwd + '\\r\\"; exp_continue; } \n'
+                    '   \\"Permission denied\\" { exit 1; } \n'
+                    '   -re {[#$]\\s*} { '
+                    '       send \\"echo \'执行日志备份指令: mv ' + expected_log  +' ' + expected_log + '.bak\'\\r\\\"; '
+                    '       send \\"(mv -f ' + expected_log  +' ' + expected_log + '.bak  2>/dev/null;exit;) 2>&1 | tee -a -;\\r\\\"; '
+                    '       expect eof; ' # 将 interact（保持交互）改为 expect eof（等待命令执行完毕后退出）
+                    '   } \\n'
+                    '}; '
+                    'expect eof" 2>&1 | tee -a ' + output_file + '; ' # 将 interact（保持交互）改为 expect eof（等待命令执行完毕后退出）
+                )
+            else:
+                print("CommandExecutor.clear_expected_logfile: 待验证远程鸿蒙系统下，预处理备份清理日志的逻辑")
+                terminal_commands = (
+                    'export TERM=xterm-256color; '
+                    'stty cooked; '
+                    f'echo "=== 鸿蒙设备远程执行 ===" | tee -a {output_file}; '
+                    f'echo "设备IP: {remote_ip} | 执行命令备份清理被测系统日志文件{expected_log}为{expected_log}.bak" | tee -a {output_file}; '
+                    f'if ! hdc list targets | grep -q "{remote_ip}"; then '
+                    f'  echo "错误：未找到鸿蒙设备 {remote_ip}，请检查hdc连接" | tee -a {output_file}; '
+                    '  bash --rcfile ~/.bashrc_no_title --noprofile; '
+                    'else '
+                    f'  hdc -t {remote_ip}:{remote_hdc_port} shell "(mv -f {expected_log} {expected_log}.bak  2>/dev/null;exit;) 2>&1 | tee -a -" 2>&1 | tee -a {output_file}; '# 执行命令：子shell包裹
+                    'fi'
+                )
+            
+        # 构建命令列表
+        #command = ["xterm", "-T", "pre_clear_logfile", "-geometry", "120x40", "-e", "bash", "-c", terminal_commands]
+        command = f"xterm -T pre_clear_logfile -geometry 120x40 -e bash {terminal_commands}"
+        return CommandExecutor.run_command(command)
+
+    @staticmethod
+    def run_script(shell_script: str, remote_os: str, remote_ip: str, remote_user:str, remote_passwd:str, remote_hdc_port:str,
+        output_file:str) -> Tuple[bool, str, str, int]:
+
+        cmd = f"chmod +x '{shell_script}'; nohup '{shell_script}' > /dev/null 2>&1 &"
+
+        if remote_ip == "127.0.0.1":
+            #os.system(cmd)
+            terminal_commands = (
+                'export TERM=xterm-256color; '
+                'stty cooked; '
+                f'echo "当前指令执行目录：$(pwd)；执行指令：{cmd}" 2>&1 | tee -a {output_file}; '
+                f'({cmd}) 2>&1 | tee -a {output_file}; '
+            )
+        else:
+            if remote_os != "HarmonyOS":
+                print("CommandExecutor.run_script: 待验证远程非鸿蒙系统下，执行全流程脚本的逻辑")
+                terminal_commands = ( 
+                    'export TERM=xterm-256color; '
+                    f'expect -c "set timeout 30; '
+                    f'spawn ssh {remote_user}@{remote_ip}; '
+                    'expect { \n'
+                    '   \\"Are you sure you want to continue connecting (yes/no)?\\" { send \\"yes\\r\\"; exp_continue; } \n'
+                    '   -re {[Pp]assword:?\s*|口令:?\s*} { send \\"' + remote_passwd + '\\r\\"; exp_continue; } \n'
+                    '   \\"Permission denied\\" { exit 1; } \n'
+                    '   -re {[#$]\\s*} { '
+                    '       send \\"echo \'执行全流程脚本: ' + cmd  +' \'\\r\\\"; '
+                    '       send \\"(' + cmd + ';) 2>&1 | tee -a -;\\r\\\"; '
+                    '       expect eof; '
+                    '   } \\n'
+                    '}; '
+                    'expect eof" 2>&1 | tee -a ' + output_file + '; ' # 将 interact（保持交互）改为 expect eof（等待命令执行完毕后退出）
+                )
+            else:
+                print("CommandExecutor.run_script: 待验证远程鸿蒙系统下，执行全流程脚本的逻辑")
+                terminal_commands = (
+                    'export TERM=xterm-256color; '
+                    'stty cooked; '
+                    f'echo "=== 鸿蒙设备远程执行 ===" | tee -a {output_file}; '
+                    f'echo "设备IP: {remote_ip} | 执行全流程脚本: {cmd}" | tee -a {output_file}; '
+                    f'if ! hdc list targets | grep -q "{remote_ip}"; then '
+                    f'  echo "错误：未找到鸿蒙设备 {remote_ip}，请检查hdc连接" | tee -a {output_file}; '
+                    '  bash --rcfile ~/.bashrc_no_title --noprofile; '
+                    'else '
+                    f'  hdc -t {remote_ip}:{remote_hdc_port} shell "({cmd};) 2>&1 | tee -a -" 2>&1 | tee -a {output_file}; '# 执行命令：子shell包裹
+                    'fi'
+                )
+            
+        # 构建命令列表
+        #command = ["xterm", "-T", "run_fullProcess_script", "-geometry", "120x40", "-e", "bash", "-c", terminal_commands]
+        command = f"xterm -T run_fullProcess_script -geometry 120x40 -e bash {terminal_commands}"
+        return CommandExecutor.run_command(command)
+
     @staticmethod
     def kill_processes_by_keyword(keyword: str) -> bool:
         """

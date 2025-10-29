@@ -3,7 +3,7 @@ import subprocess
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import List
+from typing import Tuple, List
 import math
 import pdb
 
@@ -425,7 +425,7 @@ class ScreenshotHandler:
             return False
             
     @staticmethod
-    def capture_step_screenshot(screenshot_name: str, 
+    def capture_step_screenshot_terminal(screenshot_name: str, 
         terminal_name:str, 
         terminal_line_num:int,
         log_file:str, 
@@ -505,9 +505,134 @@ class ScreenshotHandler:
                 )
                 
 
-        # 11. 关闭xterm终端，待重新定执行的时间点
+        # 11. 关闭xterm终端
         if not ScreenshotHandler.kill_xterm_by_window_id(window_id):
-            print(f"关闭终端：{window_id}失败")
+            print(f"关闭终端：{terminal_name}（窗口ID：{window_id}）失败")
                 
 
         return screenshot_paths
+
+    @staticmethod
+    def capture_step_screenshot_logfile(screenshot_name: str, terminal_name:str, 
+        remote_os: str,remote_ip: str, remote_user:str, remote_passwd:str,remote_hdc_port: str,
+        log_file:str, expected_keywords:List[str], screenshot_dir: str = "reports/screenshots") -> Tuple[bool, List[str]]:
+        """
+        捕获当前步骤的截图（适配WSL环境）
+        :param screenshot_name: 测试结果截图名字的前缀（如XXX_TEST_001_screenshot_step_1）
+        :param screenshot_dir: 截图保存目录
+        :return: 截图文件的绝对路径
+        """
+        print("="*10+f"准备截图"+"="*10)
+        # 1. 创建输出目录
+        Path(screenshot_dir).mkdir(parents=True, exist_ok=True)
+        screenshot_paths = []
+
+        # 2. 获取目标终端窗口ID，用于将该步骤待检查的日志截图后，kill该步骤command执行时的xterm终端，避免影响后续步骤的xterm终端截图
+        window_ids = ScreenshotHandler.get_xterm_window_id(terminal_name)
+        if not window_ids:
+            print(f"未找到测试步骤执行的终端窗口：{terminal_name}")
+            return (False, [])
+        # 取第一个匹配的窗口
+        window_id = window_ids.split()[0]
+
+        # 3. 关闭该步骤command执行时的xterm终端
+        if not ScreenshotHandler.kill_xterm_by_window_id(window_id):
+            print(f"关闭测试步骤执行的终端：{terminal_name}（窗口ID：{window_id}）失败")
+        else:
+            print(f"关闭测试步骤执行的终端：{terminal_name}（窗口ID：{window_id}）成功")
+
+        all_empty = all(element == '' for element in expected_keywords)
+        if not expected_keywords or all_empty:
+            print(f"对测试步骤执行产生的日志做检查时，发现expected_keywords为空：{expected_keywords}")
+            return (False, [])
+        else:
+            for keyword in expected_keywords:
+                # 4. 拉起xterm终端，用于cat该步骤待检查的日志文件后grep预期输出结果，然后截图
+                core_cmd = f"cat {log_file} | grep -F -- '{keyword}'"
+                if remote_ip == "127.0.0.1":
+                    terminal_commands = (# ./main nok，没起来； ./unit_test ok, 所有命令都重定向到日志文件
+                        'export TERM=xterm-256color; '  # 关键：强制终端类型为xterm，解析功能键
+                        'stty cooked; '  # 强制熟模式
+                        'short_pwd=$(echo "$PWD" | sed "s|^$HOME|~|"); '
+                        'echo -n "$USER@$HOSTNAME:$short_pwd$ "; '  # 打印命令提示符（不换行）
+                        f'echo "{core_cmd}"; '  # 打印命令
+                        f"{core_cmd}; "  # 执行命令
+                        'bash --rcfile ~/.bashrc_no_title --noprofile'
+                    )
+                else:
+                    if remote_os != "HarmonyOS":
+                        print("clear_expected_logfile: 待验证远程非鸿蒙系统下，预处理清理日志的逻辑")
+                        terminal_commands = ( 
+                            'export TERM=xterm-256color; '
+                            f'expect -c "set timeout 30; '
+                            f'spawn ssh {remote_user}@{remote_ip}; '
+                            'expect { \n'
+                            '   \\"Are you sure you want to continue connecting (yes/no)?\\" { send \\"yes\\r\\"; exp_continue; } \n'
+                            '   -re {[Pp]assword:?\s*|口令:?\s*} { send \\"' + remote_passwd + '\\r\\"; exp_continue; } \n'
+                            '   \\"Permission denied\\" { exit 1; } \n'
+                            '   -re {[#$]\s*} { send \\"short_pwd=$(echo \\"$PWD\\" | sed \\"s|^$HOME|~|\\");\\r\\"; exp_continue; } \n'
+                            '   -re {[#$]\s*} { send \\"echo -n \\"$USER@$HOSTNAME:$short_pwd$ \\";\\r\\"; exp_continue; } \n'
+                            '   -re {[#$]\s*} { send \\"echo \\"' + core_cmd + '\\";\\r\\"; exp_continue; } \n' # 打印命令
+                            '   -re {[#$]\s*} { send \\"' + core_cmd + ';\\r\\"; interact; } \n'
+                            '}; '
+                            'bash --rcfile ~/.bashrc_no_title --noprofile'
+                        )
+                    else:
+                        print("clear_expected_logfile: 待验证远程鸿蒙系统下，预处理清理日志的逻辑")
+                        terminal_commands = (
+                            'export TERM=xterm-256color; '
+                            'stty cooked; '
+                            f'echo "=== 鸿蒙设备远程执行 ===" ; '
+                            f'echo "设备IP: {remote_ip} | 执行命令对被测系统日志截图"; '
+                            f'if ! hdc list targets | grep -q "{remote_ip}"; then '
+                            f'  echo "错误：未找到鸿蒙设备 {remote_ip}，请检查hdc连接" ; '
+                            '  bash --rcfile ~/.bashrc_no_title --noprofile; '
+                            'else '
+                            '  short_pwd=$(echo "$PWD" | sed "s|^$HOME|~|"); '
+                            '  echo -n "$USER@$HOSTNAME:$short_pwd$ "; '
+                            f'  echo "{core_cmd}"; '  # 打印命令
+                            f'  hdc -t {remote_ip}:{remote_hdc_port} shell "{core_cmd}" ;'# 执行命令：子shell包裹
+                            f'  echo "命令执行完成，终端保持打开状态..." ; '
+                            '  bash --rcfile ~/.bashrc_no_title --noprofile; ' # 保活
+                            'fi'
+                        )
+                terminal_name_logfile = f"view_logfile"
+                command = ["xterm", "-T", terminal_name_logfile, "-geometry", f"120x40", "-e", f"bash", "-c", terminal_commands]
+                proc = subprocess.Popen(
+                    command,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    shell=False
+                )
+                time.sleep(1)
+
+                # 对查看被测系统日志的xterm终端截图
+                timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+                screenshot_path = os.path.abspath(os.path.join(screenshot_dir, f"{screenshot_name}_{timestamp}.png"))
+                logfile_window_ids = ScreenshotHandler.get_xterm_window_id(terminal_name_logfile)
+                if not logfile_window_ids:
+                    print(f"未找到查看被测系统日志的、名为{terminal_name_logfile}的终端窗口")
+                    #continue
+                    return (False, screenshot_paths)
+                logfile_window_id = logfile_window_ids.split()[0] # 取第一个匹配的窗口
+                
+                # 10. 截图并保存
+                if ScreenshotHandler.capture_terminal_region(logfile_window_id, screenshot_path):
+                    screenshot_paths.append(screenshot_path)
+                else:
+                    print("expected_keywords非空时对被测系统日志截图失败")
+                    return (False, screenshot_paths)
+
+                # 关闭查看被测系统日志的xterm终端
+                if not ScreenshotHandler.kill_xterm_by_window_id(logfile_window_id):
+                    print(f"关闭终端：{terminal_name_logfile}（窗口ID：{logfile_window_id}）失败")
+
+            return (True, screenshot_paths)
+
+
+        
+
+
+
+

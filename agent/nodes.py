@@ -33,6 +33,7 @@ def run_pre_commands(state: TestState) -> Dict:
         remote_ip = config_manager.get_remote_ip()
         remote_user = config_manager.get_remote_user()
         remote_passwd = config_manager.get_remote_passwd()
+        remote_hdc_port = config_manager.get_hdc_port()
 
         state.add_log(f"开始预处理步骤 (用例: {case_config['case_name']})")
         
@@ -64,7 +65,8 @@ def run_pre_commands(state: TestState) -> Dict:
                     remote_os=remote_os,
                     remote_ip=remote_ip,
                     remote_user=remote_user,
-                    remote_passwd=remote_passwd
+                    remote_passwd=remote_passwd,
+                    remote_hdc_port=remote_hdc_port
                 )
                 idx += 1
                 
@@ -74,7 +76,7 @@ def run_pre_commands(state: TestState) -> Dict:
                         f"预处理命令执行失败（返回码: {returncode}）\n错误输出: {stderr}"
                     )
                 else:
-                    state.add_log(f"预处理命令执行成功（返回码: {returncode}, 非0:失败，0:成功）")
+                    state.add_log(f"预处理命令执行成功（返回码: {returncode}）")
 
         state.add_log("所有预处理命令执行完成")
         state.current_step = 0
@@ -121,6 +123,7 @@ def run_test_step(state: TestState) -> Dict:
         remote_ip = config_manager.get_remote_ip()
         remote_user = config_manager.get_remote_user()
         remote_passwd = config_manager.get_remote_passwd()
+        remote_hdc_port = config_manager.get_hdc_port()
         log_file_name=f"{remote_ip}_{case_id}_log_step_{step_idx + 1}_{timestamp}.log"
         
         #if step_idx == 1:
@@ -140,7 +143,8 @@ def run_test_step(state: TestState) -> Dict:
             remote_os=remote_os,
             remote_ip=remote_ip,
             remote_user=remote_user,
-            remote_passwd=remote_passwd
+            remote_passwd=remote_passwd,
+            remote_hdc_port=remote_hdc_port
         )
 
 
@@ -217,6 +221,10 @@ def run_fill_result(state: TestState) -> Dict:
         total_steps = len(steps)
         result_len = len(case_result["steps"])
         remote_ip = config_manager.get_remote_ip()
+        remote_os = config_manager.get_remote_os()
+        remote_user = config_manager.get_remote_user()
+        remote_passwd = config_manager.get_remote_passwd()
+        remote_hdc_port = config_manager.get_hdc_port()
         
         state.add_log(f"已执行完的测试步骤数量为：{step_num}, 待执行的总步骤数量为：{total_steps}")
 
@@ -228,6 +236,9 @@ def run_fill_result(state: TestState) -> Dict:
                 state.add_log(f"回填第 {step_idx + 1} 个步骤的结果") 
                 terminal_name = f"{case_id}_step_{step_idx + 1}"
                 screenshot_name = f"{case_id}_screenshot_step_{step_idx + 1}"
+                expected_type = step.get("expected_type", "terminal")
+                expected_log = step.get("expected_log", "")
+                
                 if result_len < step_num: 
                     #state.add_log(f"获取第{step_idx+1}步的进程失败，可能是:1.执行该步骤时没拉起来xterm子进程就异常了; 2.执行完了但case_result.append前发生了异常，需回填该步骤的测试结果")
                     log_files = glob.glob(f"logs/{remote_ip}_{case_id}_log_step_{step_idx + 1}_*.log")
@@ -249,12 +260,15 @@ def run_fill_result(state: TestState) -> Dict:
                 else:
                     process, log_file = state.proc_manager.subprocesses[step_idx]
 
-                actual_output = state.proc_manager.capture_output_file(log_file) # 放在if外面，在步骤执行完成但case_result.append前异常的情况，能正常读取到日志，回填正确结果
-                keyword_check = CommandExecutor.check_keywords(actual_output, step["expected_output"])# 关键词检查（按用例要求比对终端输出）
+                if expected_type == "logfile" and expected_log != "":
+                    log_file = expected_log
+                    #print(f"!!! 通过被测系统日志 {log_file}比对预期结果，而不是与被测程序的终端输出打印比对")
 
-                if actual_output:
+                actual_output = state.proc_manager.capture_output_file(log_file) # 放在if外面，在步骤执行完成但case_result.append前异常的情况，能正常读取到日志，回填正确结果
+                
+                if actual_output and expected_type == "terminal":
                     # 测试步骤的实时日志非空时，即已拉起了xterm终端并执行了用例指令，需要记录测试步骤截图
-                    screenshot_paths = ScreenshotHandler.capture_step_screenshot(
+                    screenshot_paths = ScreenshotHandler.capture_step_screenshot_terminal(
                         screenshot_name=f"{remote_ip}_{case_id}_screenshot_step_{step_idx + 1}",
                         screenshot_dir=config_manager.get_screenshot_dir(),
                         terminal_name=f"{case_id}_step_{step_idx + 1}",
@@ -263,14 +277,32 @@ def run_fill_result(state: TestState) -> Dict:
                         expected_keywords=step["expected_output"]
                     )
                     if not screenshot_paths:
-                        state.add_error(f"第{step_idx + 1}步的xterm终端截图失败")
+                        state.add_error(f"第{step_idx + 1}步的被测程序执行时的xterm终端截图失败")
                     else:
-                        state.add_log(f"已保存第{step_idx + 1}步的xterm终端截图: {screenshot_paths}")
+                        state.add_log(f"已保存第{step_idx + 1}步的被测程序执行时的xterm终端截图: {screenshot_paths}")
+                elif actual_output and expected_type == "logfile":
+                    success, screenshot_paths = ScreenshotHandler.capture_step_screenshot_logfile(
+                        screenshot_name=f"{remote_ip}_{case_id}_screenshot_step_{step_idx + 1}",
+                        screenshot_dir=config_manager.get_screenshot_dir(),
+                        terminal_name=f"{case_id}_step_{step_idx + 1}",
+                        remote_os=remote_os,
+                        remote_ip=remote_ip,
+                        remote_user=remote_user,
+                        remote_passwd=remote_passwd,
+                        remote_hdc_port=remote_hdc_port,
+                        log_file=log_file,
+                        expected_keywords=step["expected_output"]
+                    )
+                    if not success:
+                        state.add_error(f"第{step_idx + 1}步待检查的被测系统日志截图失败")
+                    else:
+                        state.add_log(f"已保存第{step_idx + 1}步待检查的被测系统日志截图: {screenshot_paths}")
                 else:
-                    state.add_error(f"第{step_idx + 1}步的执行日志文件为空，可能是该步骤xterm终端未拉起，测试步骤实际未执行")
+                    state.add_error(f"第{step_idx + 1}步的执行日志文件或被测系统日志为空，可能是该步骤xterm终端未拉起，测试步骤实际未执行")
                     screenshot_paths = []
 
                 # 结合返回码和关键词匹配判断结果（符合文档评估标准）
+                keyword_check = CommandExecutor.check_keywords(actual_output, step["expected_output"])# 关键词检查（按用例要求比对终端输出）
                 step_result = "通过" if (keyword_check["all_matched"]) else "不通过"
                 state.add_log(f"步骤 {step_idx + 1} 结果: {step_result} (关键词匹配结果: {keyword_check['all_matched']})")
 
@@ -342,6 +374,7 @@ def run_post_process(state: TestState) -> Dict:
         remote_ip = config_manager.get_remote_ip()
         remote_user = config_manager.get_remote_user()
         remote_passwd = config_manager.get_remote_passwd()
+        remote_hdc_port = config_manager.get_hdc_port()
 
         # 执行后置命令，验证返回码
         post_commands = case_config.get("post_commands", [])
@@ -368,7 +401,8 @@ def run_post_process(state: TestState) -> Dict:
                     remote_os=remote_os,
                     remote_ip=remote_ip,
                     remote_user=remote_user,
-                    remote_passwd=remote_passwd
+                    remote_passwd=remote_passwd,
+                    remote_hdc_port=remote_hdc_port
                 )
                 idx += 1
                 

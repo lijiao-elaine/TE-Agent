@@ -4,7 +4,13 @@ TE-Agent是根据测试细则文档和自动化用例配置文件执行测试用
 
 ## 项目简介
 
-TE-Agent是一个基于pytest和LangGraph构建的智能体框架，能够自动运行测试用例，并回填测试结果和截图到测试用例文档，最终生成标准化的测试报告。
+TE-Agent是一个基于pytest和LangGraph构建的智能体框架，支持在单台执行机上自动运行测试用例，并回填测试结果和截图到测试用例文档，最终生成标准化的测试报告。
+
+支持在本地、远程鸿蒙设备、远程非鸿蒙linux设备执行用例，同时支持三种测试模式：
+
+执行单个用例：指定单个测试用例文件路径，仅执行该用例
+执行单个模块用例：指定模块目录，执行该目录下所有用例
+执行全量用例：不指定具体范围，执行test_cases或test_cases_ohos目录下所有测试用例
 
 ## 功能特性
 
@@ -48,8 +54,8 @@ sudo apt-get install expect
 
 如果需要修改任何配置，如：远程执行用例的机器os类型、ip地址、登录用户名和密码，或 生成报告的地址、归档日志的地址等，直接修改 `config/config.yaml` 中对应配置项的值即可。
 
-scp unit_test root@192.168.137.100:/home/lijiao/work/GD-Agent/examples/StartedNode/build/
-scp main root@192.168.137.100:/home/lijiao/work/display-GD-Agent-tool/
+scp unit_test root@192.168.137.100:/home/lijiao/work/TE-Agent/sample/GD-Agent/examples/StartedNode/build/
+scp main root@192.168.137.100:/home/lijiao/work/TE-Agent/sample/display-GD-Agent-tool/
 
 ## 使用方法
 
@@ -65,20 +71,22 @@ scp main root@192.168.137.100:/home/lijiao/work/display-GD-Agent-tool/
   "case_id": "XXX_TEST_001", # 用例id，需要与word测试细则文档中的用例“标识”一致且唯一，必填
   "case_name": "XXX_测试_001", # 用例id，需要与word测试细则文档中的用例“测试用例名称”一致，必填
   "pre_commands": [ # 用例预处理步骤
-    "cd /home/lijiao/work/GD-Agent/examples/StartedNode && rm -rf ./build && mkdir build && cp main.c build && ls -lrt",
-    "cd /home/lijiao/work/GD-Agent/examples/StartedNode/build && pwd && ls -lrt && gcc -o unit_test main.c && ls -lrt"
+    "cd /home/lijiao/work/TE-Agent/sample/GD-Agent/examples/StartedNode && rm -rf ./build && mkdir build && cp main.c build && ls -lrt",
+    "cd /home/lijiao/work/TE-Agent/sample/GD-Agent/examples/StartedNode/build && pwd && ls -lrt && gcc -o unit_test main.c && ls -lrt"
   ],
   "execution_steps": [ # 每个用例的多个执行步骤，其中步骤的数量和顺序，应该严格与word测试细则文档中一致，否则填写测试结果时会发生错乱，必填
     {
-      "exec_path": "/home/lijiao/work/GD-Agent/examples/StartedNode", # 必填
-      "command": "date;cd /home/lijiao/work/GD-Agent/examples/StartedNode/build && ls -lrt && ls -lrt", # 必填
+      "exec_path": "/home/lijiao/work/TE-Agent/sample/GD-Agent/examples/StartedNode", # 必填
+      "command": "date;cd /home/lijiao/work/TE-Agent/sample/GD-Agent/examples/StartedNode/build && ls -lrt && ls -lrt", # 必填，全流程用例可以填：""
       "blocked_process":0, # 表明 command 启动的进程是否始终保持在前台不退出，不退出即为阻塞式的，需要配置为1，否则为0
       "sleep_time":1, # 如果blocked_process值为0，则sleep_time必须配置，且不能过大，比当前步骤的command执行时长稍长1秒左右即可
       "timeout": 30,
-      "expected_output": [] # 预期结果检查时，用于检查程序执行终端是否打印这些字符串以判断用例成功与否
+      "expected_output": [], # 预期结果检查时，用于检查程序执行终端是否打印这些字符串以判断用例成功与否
+      "expected_type": "terminal", # 在哪里预期结果，在被测程序执行时的终端打印中检查预期结果，则填 "terminal"；在被测系统日志检查预期结果，则填 "logfile"
+      "expected_log": ""  # 在被测系统日志检查预期结果，则填待检查日志的绝对路径。注意日志路径前不要多输入空格
     },
     {
-      "exec_path": "/home/lijiao/work/GD-Agent/examples/StartedNode/build",
+      "exec_path": "/home/lijiao/work/TE-Agent/sample/GD-Agent/examples/StartedNode/build",
       "command": "date;./unit_test;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt",
       "blocked_process":0,
       "sleep_time":1,
@@ -89,7 +97,9 @@ scp main root@192.168.137.100:/home/lijiao/work/display-GD-Agent-tool/
         "[       OK ] EmitterStateTest.StartedNodeResetsAllFlags",
         "[       OK ] EmitterStateTest.StartedNodeInNestedGroups",
         "[  PASSED  ] 4 tests"
-      ]
+      ],
+      "expected_type": "logfile",
+      "expected_log": "/home/lijiao/work/TE-Agent/logfile.txt"
     }
   ],
   "post_commands": [ # 用例后处理步骤
@@ -126,23 +136,26 @@ python main.py
 
 2. 执行module_1模块用例的场景：
 ```bash
-python main.py -m test_cases/module_1
+python main.py -m test_cases/unit_test/module_1
 ```
 
 3. 执行单个用例的场景：
 ```bash
-python main.py -t test_cases/test_case_1.json
+python main.py -t test_cases/unit_test/test_case_1.json
 ```
 或
 ```bash
-python main.py --testcase test_cases/test_case_1.json
+python main.py --testcase test_cases/unit_test/test_case_1.json
 ```
 
 ### 参数说明
 
-- `-t`: 待执行的单个测试用例路径 (可选，如：test_cases/test_case_1.json)
-- `-m`: 待执行的测试用例模块 (可选，如：test_cases/module_1)
+- `-t`: 待执行的单个测试用例路径 (可选，如：test_cases/unit_test/test_case_1.json)
+- `-m`: 待执行的测试用例模块 (可选，如：test_cases/unit_test/module_1)
 - `-r`: 生成的测试报告路径 (可选，默认: reports/test_report.html)
+
+### 用例执行调试说明
+main.py中test_run_case函数里，在执行完全流程脚本后，加了20秒sleep，如果全流程脚本所有进程启动时间超过20秒，可按需修改
 
 #### Web端演示 TE-Agent工具
 
@@ -179,6 +192,15 @@ TE_Agent/
 │   ├── __init__.py
 │   ├── config_manager.py     # 配置管理器
 │   └── config.yaml          # 默认配置文件
+├── sample/                  # 预置的示例用例中用到的被测系统源文件、可执行程序、全流程脚本、被测系统日志等
+│   ├── display-GD-Agent-tool/  # 示例用例中，被测系统源文件
+│   ├── GD-Agent/              # 示例用例中，被测系统源文件  
+│   ├── full_process_start.sh  # 示例用例中，被测系统全流程脚本
+│   ├── full_process_stop.sh   # 示例用例中，被测系统全流程终止脚本  
+│   ├── fullprocess.c          # 示例用例中，被测系统源文件
+│   ├── fullprocess            # 示例用例中，被测系统可执行程序 
+│   ├── test.c                 # 示例用例中，被测系统源文件
+│   └── test                   # 示例用例中，被测系统可执行程序 
 ├── test_case_manager/         # 测试用例管理模块
 │   ├── __init__.py
 │   └── test_case_manager.py   # 测试用例管理类
@@ -197,6 +219,7 @@ TE_Agent/
 ├── conftest.py        # pytest文件
 ├── main.py            # 入口
 ├── README.md  # readme文档
+├── version.md  # TE-Agent版本迭代说明文档
 ├── requirements.txt  # python依赖包列表
 ├── TE-Agent_streamlit.py  # streamlit 脚本，用于在Web页面演示TE-Agent工具用法
 └── merged_word.docx  # 测试细则文档，用于读取文本用例，也是还未回填测试结果的测试报告
@@ -206,9 +229,9 @@ TE_Agent/
 
 项目包含2个示例模块和1个独立的示例测试用例，包含：
 
-- 模块：test_cases/module_1 、 test_cases/module_2 ， 其下包含多个用例
+- 模块：test_cases/unit_test/module_1 、 test_cases/unit_test/module_2 ， 其下包含多个用例
 
-- 用例： test_cases/test_case_1.json
+- 用例： test_cases/unit_test/test_case_1.json
 
 
 ## 生成的文档格式

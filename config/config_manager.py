@@ -105,6 +105,10 @@ class ConfigManager:
         """获取测试报告保存目录"""
         return self.get("reports.report_file", "reports/test_report.html")
 
+    def get_env_DISPLAY(self) -> str:
+        """获取测试报告保存目录"""
+        return self.get("env.DISPLAY", ":0")
+		
     def save_config(self) -> None:
         """保存当前配置到文件（用于动态修改配置后持久化）"""
         with open(self.config_path, "w", encoding="utf-8") as f:

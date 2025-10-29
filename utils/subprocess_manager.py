@@ -47,6 +47,7 @@ class SubprocessManager:
         remote_ip: str,
         remote_user: str,
         remote_passwd: str,
+        remote_hdc_port:str
         ) -> List[str]:
         """根据操作系统生成启动终端的命令（含输出重定向）"""
         # 构造可执行程序的命令（输出重定向到文件，同时终端显示）;不同终端的命令格式差异较大，需要针对性处理
@@ -64,17 +65,27 @@ class SubprocessManager:
             if remote_ip == "127.0.0.1": # 本地运行TE-Agent工具，且本地执行用例可执行程序
                 if blocked_process == 1:
                     terminal_commands = ( # ./main ok,即使是复合语句也可以重定向日志, ./unit_test nok, 不重定向日志文件了
-                        'export TERM=xterm-256color; '  # 关键：强制终端类型为xterm，解析功能键
+                        'export TERM=xterm-256color; '  # 强制终端类型为xterm，解析功能键
                         'stty cooked; '  # 强制熟模式
-                        'echo \"当前指令执行目录：$(pwd)\"; '
+                        # 全局重定向：将整个脚本的输出写入日志
+                        f'echo \"当前指令执行目录：$(pwd)\"| tee -a {output_file}; '
+                        f'echo \"执行指令：{exec_cmd}\"| tee -a {output_file}; '
+                        'short_pwd=$(echo "$PWD" | sed "s|^$HOME|~|"); '
+                        f'echo -n "$USER@$HOSTNAME:$short_pwd$ "| tee -a {output_file}; '  # 打印命令提示符（不换行）
+                        f'echo \"{exec_cmd}\"| tee -a {output_file}; '
                         f"script -q -c \"{exec_cmd}\" /dev/null 2>&1 | tee -a {output_file};"
                         'bash --rcfile ~/.bashrc_no_title --noprofile'
                     )
                 else:
                     terminal_commands = (# ./main nok，没起来； ./unit_test ok, 所有命令都重定向到日志文件
-                        'export TERM=xterm-256color; '  # 关键：强制终端类型为xterm，解析功能键
+                        'export TERM=xterm-256color; '  # 强制终端类型为xterm，解析功能键
                         'stty cooked; '  # 强制熟模式
-                        'echo \"当前指令执行目录：$(pwd)\"; '
+                        # 全局重定向：将整个脚本的输出写入日志
+                        f'echo \"当前指令执行目录：$(pwd)\"| tee -a {output_file}; '
+                        f'echo \"执行指令：{exec_cmd}\"| tee -a {output_file}; '
+                        'short_pwd=$(echo "$PWD" | sed "s|^$HOME|~|"); '
+                        f'echo -n "$USER@$HOSTNAME:$short_pwd$ "| tee -a {output_file}; '  # 打印命令提示符（不换行）
+                        f'echo \"{exec_cmd}\"| tee -a {output_file}; '
                         f"({exec_cmd}) 2>&1 | tee -a {output_file};"
                         'bash --rcfile ~/.bashrc_no_title --noprofile'
                     )
@@ -89,19 +100,6 @@ class SubprocessManager:
                 #print("本地运行TE-Agent工具，下位机执行用例可执行程序")
                 if remote_os != "HarmonyOS":
                     if blocked_process == 1:
-                        expect_commands_OK = ( 
-                            'export TERM=xterm-256color; '
-                            f'expect -c "set timeout 30; '
-                            f'spawn ssh {remote_user}@{remote_ip}; '
-                            'expect { \n'
-                            '   \\"Are you sure you want to continue connecting (yes/no)?\\" { send \\"yes\\r\\"; exp_continue; } \n'
-                            '   -re {[Pp]assword:?\\s*|口令:?\\s*} { send \\"' + remote_passwd + '\\r\\"; exp_continue; } \n'
-                            '   \\"Permission denied\\" { exit 1; } \n'
-                            '   -re {[#$]\\s*} { send \\"script -q -c \\\'\' '+ exec_cmd + '\\\'\' :; /dev/null 2>&1 | tee -a -;\\r\\"; interact; } \n'
-                            '}; '
-                            'interact" 2>&1 | tee -a ' + output_file + '; '
-                            'bash --rcfile ~/.bashrc_no_title --noprofile'
-                        )
                         expect_commands = ( 
                             'export TERM=xterm-256color; '
                             f'expect -c "set timeout 30; '
@@ -130,15 +128,6 @@ class SubprocessManager:
                             'interact" 2>&1 | tee -a ' + output_file + '; '
                             'bash --rcfile ~/.bashrc_no_title --noprofile'
                         ) # (...)的是子shell，在子shell中cd只会改变子shell的工作目录
-                    '''
-                    return [
-                        "xterm",
-                        "-name", f"{terminal_name}",
-                        "-T", f"{terminal_name}",
-                        "-geometry", f"120x{terminal_line_num}",
-                        "-e", f"bash -c '{expect_commands}'"
-                    ]
-                    '''
                 else:
                     # 转义exec_cmd中的特殊字符,避免bash解析错误
                     #escaped_exec_cmd = exec_cmd.replace('"', '\\"').replace('$', '\\$').replace('`', '\\`')
@@ -147,12 +136,12 @@ class SubprocessManager:
                             'export TERM=xterm-256color; '
                             'stty cooked; '
                             f'echo "=== 鸿蒙设备远程执行 ===" | tee -a {output_file}; '
-                            f'echo "设备IP: {remote_ip} | 执行命令: {escaped_exec_cmd}" | tee -a {output_file}; '
+                            f'echo "设备IP和端口: {remote_ip}:{remote_hdc_port} | 执行命令: {escaped_exec_cmd}" | tee -a {output_file}; '
                             f'if ! hdc list targets | grep -q "{remote_ip}"; then '
                             f'  echo "错误：未找到鸿蒙设备 {remote_ip}，请检查hdc连接" | tee -a {output_file}; '
                             '  bash --rcfile ~/.bashrc_no_title --noprofile; '
                             'else '
-                            f'  hdc shell "(cd {cwd};{escaped_exec_cmd}) 2>&1 | tee -a -" 2>&1 | tee -a {output_file}; '# 执行命令：子shell包裹
+                            f'  hdc -t {remote_ip}:{remote_hdc_port} shell "(cd {cwd};{escaped_exec_cmd}) 2>&1 | tee -a -" 2>&1 | tee -a {output_file}; '# 执行命令：子shell包裹
                             f'  echo "命令执行完成，终端保持打开状态..." | tee -a {output_file}; '
                             '  bash --rcfile ~/.bashrc_no_title --noprofile; ' # 保活
                             'fi'
@@ -175,7 +164,7 @@ class SubprocessManager:
             raise NotImplementedError(f"不支持的操作系统：{sys.platform}")
 
     def start_subprocess_pre_post(self, exec_cmd: str, terminal_name: str, remote_os: str,
-        remote_ip: str, remote_user: str, remote_passwd: str,
+        remote_ip: str, remote_user: str, remote_passwd: str, remote_hdc_port:str,
         blocked_process:int = 0, # 在xterm终端中执行的程序是否是持续运行不退出，即阻塞式进程
         log_path: str = "logs",  # 测试步骤日志的输出目录
         log_file: str = "output_step.log",  # 测试步骤日志的文件名
@@ -222,6 +211,7 @@ class SubprocessManager:
                         # 全局重定向：将整个脚本的输出写入日志
                         exec > >(tee -a {output_file}) 2>&1
                         echo "当前指令执行目录：$(pwd)"
+                        echo "执行指令：{exec_cmd}"
                         ({exec_cmd}) 
                         echo "当前指令退出码："
                         echo ${{PIPESTATUS[0]}}
@@ -291,7 +281,7 @@ class SubprocessManager:
                                 "Permission denied" {{ exit 1}}
                                 -re {{[#$]\\s*}} {{
                                     # 执行命令并同时捕获 stdout、stderr 和退出码
-                                    send "({escaped_exec_cmd}) 2> {remote_error_file}; echo \\"\\$?\\" > {remote_exit_code}; echo \\"退出远程连接前，打印命令退出状态码：\\"; cat /tmp/remote_exit_code.tmp;cat {remote_error_file}; exit\\r"
+                                    send "({escaped_exec_cmd}) 2> {remote_error_file}; echo \\"\\$?\\" > {remote_exit_code}; echo \\"退出远程连接前，打印命令退出状态码：\\"; cat {remote_exit_code};cat {remote_error_file}; exit\\r"
                                     expect eof
                                 }}
                                 timeout {{exit 2}}
@@ -358,16 +348,16 @@ class SubprocessManager:
                             echo "执行命令: {exec_cmd}" 
 
                             echo "[准备] 清理鸿蒙设备临时文件..." 
-                            hdc shell "rm -f {harmony_temp_exit} {harmony_temp_err}" > /dev/null 2>&1
+                            hdc -t {remote_ip}:{remote_hdc_port} shell "rm -f {harmony_temp_exit} {harmony_temp_err}" > /dev/null 2>&1
                             if [ $? -ne 0 ]; then
                                 echo "[警告] 清理临时文件失败，可能影响退出码捕获" 
                             fi
 
                             echo "[执行] 正在鸿蒙设备上通过hdc shell运行命令..." 
-                            hdc shell "({escaped_exec_cmd}) 2> {harmony_temp_err}; echo \$? > {harmony_temp_exit};" 2>&1 
+                            hdc -t {remote_ip}:{remote_hdc_port} shell "({escaped_exec_cmd}) 2> {harmony_temp_err}; echo \$? > {harmony_temp_exit};" 2>&1 
                             
                             echo "[日志] 错误码和错误日志如下：" 
-                            hdc shell "cat {harmony_temp_exit}; cat {harmony_temp_err}" 2>&1 
+                            hdc -t {remote_ip}:{remote_hdc_port} shell "cat {harmony_temp_exit}; cat {harmony_temp_err}" 2>&1 
                             echo "[等待] 等待命令执行结果同步..." 
                             sleep {sleep_time}
 
@@ -375,7 +365,7 @@ class SubprocessManager:
                             hdc file recv {harmony_temp_exit} {exit_code_file} > /dev/null 2>&1
                             hdc file recv {harmony_temp_err} {error_output_file} > /dev/null 2>&1
 
-                            hdc shell "rm -f {harmony_temp_exit} {harmony_temp_err}" > /dev/null 2>&1
+                            hdc -t {remote_ip}:{remote_hdc_port} shell "rm -f {harmony_temp_exit} {harmony_temp_err}" > /dev/null 2>&1
 
                             echo "=== 鸿蒙远程命令执行结束 ===" 
                             '''
@@ -434,6 +424,7 @@ class SubprocessManager:
                 try:
                     if os.path.exists(tmp_file):
                         os.remove(tmp_file)
+                        #print(f"返回码文件待清理： {tmp_file}")
                 except:
                     pass
 
@@ -475,6 +466,7 @@ class SubprocessManager:
         remote_ip: str,
         remote_user: str,
         remote_passwd: str,
+        remote_hdc_port:str,
         blocked_process:int = 0, # 在xterm终端中执行的程序是否是持续运行不退出，即阻塞式进程
         cwd: Optional[str] = "",  # 子进程工作目录
         log_path: str = "logs",  # 测试步骤日志的输出目录
@@ -505,10 +497,9 @@ class SubprocessManager:
                 remote_os,
                 remote_ip,
                 remote_user,
-                remote_passwd
+                remote_passwd,
+                remote_hdc_port
                 )
-            cmd_str = ' '.join(terminal_cmd)
-            #print(f"子进程待执行命令：{cmd_str}")
 
             if remote_ip == "127.0.0.1":
                 proc = subprocess.Popen(# 非阻塞启动xterm终端，执行用例指令
@@ -587,9 +578,6 @@ class SubprocessManager:
             if proc.poll() is None:  # 若子进程仍在运行
                 proc.terminate()
                 print(f"已终止子进程：{proc.pid}")
-            # 删除输出文件
-            #if os.path.exists(output_file):
-            #    os.remove(output_file)
         # 再关闭所有 xterm 终端
         self.close_all_xterm()
 

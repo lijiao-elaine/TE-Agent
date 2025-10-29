@@ -8,7 +8,7 @@ execution:
   default_timeout: 60  # 步骤默认超时时间
   pre_command_timeout: 30  # 预处理命令超时时间
   post_command_timeout: 30  # 后置命令超时时间
-  sleep_time: 1 # 步骤中的子进程启动后，默认睡眠时间
+  sleep_time: 10 # 步骤中的子进程启动后，默认睡眠时间
 
 execute_machine:
   remote_ip: "127.0.0.1" # 127.0.0.1  ubuntu remote: 192.168.137.100 （本地：192.168.137.110/255.255.255.0） harmonyos remote: 192.168.0.6 （本地： 192.168.0.110/255.255.255.0） 

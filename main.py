@@ -11,7 +11,13 @@ from pathlib import Path
 from agent.test_execute_agent import TestExecuteAgent
 from test_case_manager.test_case_manager import TestCaseManager
 from config.config_manager import ConfigManager  # 导入配置管理器
+from utils.command_executor import CommandExecutor
 import os
+import subprocess
+import time
+
+# 在文件顶部添加 pytest 标记，排除非测试类，避免收集警告
+pytestmark = [pytest.mark.filterwarnings("ignore::pytest.PytestCollectionWarning")]
 
 def get_test_cases_by_module(module_path: str = None) -> list:
     """根据模块路径过滤用例"""
@@ -34,10 +40,10 @@ def get_test_cases_by_module(module_path: str = None) -> list:
     filtered_cases = []
     for case in all_cases:
         case_abs = Path(case).resolve()
-        if target_module in case_abs.parents or case_abs.parent == target_module:
+        if target_module in case_abs.parents or case_abs.parent == target_module or case_abs == target_module:
             filtered_cases.append(case)
-    
-    print(f"模块 {module_path} 下共找到 {len(filtered_cases)} 个用例")
+
+    print(f"模块 {module_path} 下共找到 {len(filtered_cases)} 个{case_type}用例")
     return filtered_cases
 
 def test_run_case(case_path, init_test_session):
@@ -98,16 +104,7 @@ if __name__ == "__main__":
     # 执行单个用例或所有用例
     filtered_cases = []
     if args.testcase:
-        case_path = Path(args.testcase)
-        if case_path.exists():
-            test_case = str(case_path.absolute())
-            print(f"待执行的单个用例为：{test_case}")
-            filtered_cases.append(test_case)
-            #success = run_single_case(str(case_path))
-            #exit(0 if success else 1)
-        else:
-            print(f"错误: 测试用例文件不存在 - {case_path}")
-            exit(1)
+        filtered_cases = get_test_cases_by_module(args.testcase) # 获取单个用例
     else:
         # 获取模块过滤后的用例列表
         filtered_cases = get_test_cases_by_module(args.module)
@@ -122,4 +119,13 @@ if __name__ == "__main__":
         
     # 执行测试
     pytest.main(pytest_args)
+	
+	# 验证html报告
+    report_path = os.getenv("REPORT_PATH", "")
+    report_final_path = report_path if report_path else config_manager.get_report_file()
+    if Path(os.path.abspath(report_final_path)).is_file(): 
+        print(f"\n测试完成，用例结果已填充到 {config_manager.get_result_word_file()}")
+        print(f"HTML测试报告已生成: {os.path.abspath(report_final_path)}")
+    else:
+        print(f"\n警告: HTML测试报告文件不存在 - {os.path.abspath(report_final_path)}")
     

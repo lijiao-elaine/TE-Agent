@@ -3,10 +3,9 @@ import shutil
 from pathlib import Path
 import subprocess
 import pytest
+import time
 from test_case_manager.test_case_manager import TestCaseManager
 from config.config_manager import ConfigManager  # 导入ConfigManager
-
-REPORT_PATH = None  # 全局初始化
 
 def clean_directory(dir_path: Path):
     """
@@ -27,21 +26,6 @@ def clean_directory(dir_path: Path):
             except Exception as e:
                 print(f"清理 {item} 失败: {str(e)}")
 
-# pytest钩子，在命令行参数解析后立即处理报告路径
-def pytest_configure(config):
-    global REPORT_PATH
-    config_manager = ConfigManager()
-    report_path = Path(config_manager.get_report_file())
-    
-    # 检查是否已通过命令行指定--html
-    if not config.getoption("--html"):
-        REPORT_PATH = str(report_path)
-        # 设置配置中的报告路径
-        config.option.htmlpath = os.path.abspath(REPORT_PATH)
-        config.option.self_contained_html = True
-        print(f"钩子函数pytest_configure中设置报告路径: {config.option.htmlpath}")
-    else:
-        REPORT_PATH = config.option.htmlpath
 
 def check_hdc_connection(remote_ip: str, hdc_port: str):
     terminal_cmd = ["hdc","list", "targets"]
@@ -68,6 +52,35 @@ def check_hdc_connection(remote_ip: str, hdc_port: str):
     else:
         return True
 
+
+# pytest钩子，在命令行参数解析后立即处理报告路径
+def pytest_configure(config):
+    config_manager = ConfigManager()
+    report_path = Path(config_manager.get_report_file())
+    
+    # 检查是否已通过命令行指定--html
+    cli_html_path = config.getoption("--html")
+    if not cli_html_path:  # 仅当命令行未指定时，使用配置文件中的默认路径
+        os.environ["REPORT_PATH"] = str(report_path)
+        # 设置配置中的报告路径
+        config.option.htmlpath = os.path.abspath(str(report_path))
+        config.option.self_contained_html = True
+        config.option.html_show_all_errors = True
+        print(f"钩子函数pytest_configure中设置报告路径: {config.option.htmlpath}")
+    else:
+        os.environ["REPORT_PATH"] = cli_html_path
+        print(f"使用命令行指定的报告路径: {os.path.abspath(cli_html_path)}")
+
+
+# pytest钩子，强制先执行 batch1 标记的用例
+def pytest_collection_modifyitems(items):
+    # 分离batch1和batch2的用例
+    batch1_items = [item for item in items if item.get_closest_marker("batch1")]
+    batch2_items = [item for item in items if item.get_closest_marker("batch2")]
+    # 重新排序：先batch1，后batch2
+    items[:] = batch1_items + batch2_items
+
+
 @pytest.fixture(scope="session", autouse=True)
 def init_test_session(request):
     """初始化测试会话"""
@@ -76,9 +89,14 @@ def init_test_session(request):
         case_manager = TestCaseManager()
         remote_ip = config_manager.get_remote_ip()
         remote_os = config_manager.get_remote_os()
+        env_DISPLAY = config_manager.get_env_DISPLAY()
 
         # 创建报告目录和截图目录、创建日志目录
-        report_dir = Path(config_manager.get_report_file()).parent
+        report_path = os.getenv("REPORT_PATH", "")
+        if report_path:
+            report_dir = Path(report_path).parent
+        else:
+            report_dir = Path(config_manager.get_report_file()).parent
         clean_directory(report_dir)
         
         screenshot_dir = Path(config_manager.get_screenshot_dir())
@@ -88,8 +106,11 @@ def init_test_session(request):
         clean_directory(log_dir)
 
         report_dir.mkdir(parents=True, exist_ok=True)
+        os.chmod(report_dir, 0o755)  # 添加写入权限
         screenshot_dir.mkdir(parents=True, exist_ok=True)
         log_dir.mkdir(parents=True, exist_ok=True)
+        
+        subprocess.run( f'export DISPLAY="{env_DISPLAY}"', shell=True, check=True)
 
         # 准备用于回填测试结果的用例文档
         case_manager.get_test_case_report(
@@ -97,7 +118,7 @@ def init_test_session(request):
                 new_word_file=config_manager.get_result_word_file()
             )
 
-        print(f"测试报告将生成至: {os.path.abspath(REPORT_PATH)}")
+        print(f"测试报告将生成至: {os.path.abspath(report_path)}")
 
         if remote_ip != "127.0.0.1" and remote_os == "HarmonyOS": 
             #print("开始检查远程鸿蒙系统 hdc 连接")
@@ -110,12 +131,7 @@ def init_test_session(request):
                 print("远程鸿蒙系统 hdc 连接成功")
         yield # 执行用例
 
-        print(f"\n测试完成，结果已填充到 {config_manager.get_result_word_file()}")
-        if REPORT_PATH and Path(REPORT_PATH).exists:
-            print(f"HTML测试报告已生成: {os.path.abspath(REPORT_PATH)}")
-        elif REPORT_PATH:
-            print(f"警告: HTML测试报告文件不存在 - {os.path.abspath(REPORT_PATH)}")
-
+        # pytest-html 插件在 pytest 会话完全结束后才会写入最终的报告文件，即使在yield 之后验证报告生成（用例执行完成后），但 pytest 可能仍在后台处理报告写入
     except Exception as e:
         print(f"初始化测试会话失败: {str(e)}")
         raise
