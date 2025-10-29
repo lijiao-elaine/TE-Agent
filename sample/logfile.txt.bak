@@ -1,0 +1,4 @@
+[       OK|OK ] EmitterStateTest.StartedNodeWithNonEmptyGroupsIncrementsChildCount
+[       OK ] EmitterStateTest.StartedNodeResetsAllFlags
+[       OK ] EmitterStateTest.StartedNodeInNestedGroups
+[  PASSED  ] 4 tests
