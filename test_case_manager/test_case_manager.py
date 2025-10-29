@@ -11,7 +11,7 @@ from pathlib import Path
 class TestCaseManager:
     """测试用例管理器，负责测试用例文件的加载、解析和验证"""
     
-    def __init__(self, test_cases_dir: str = "test_cases"):
+    def __init__(self, test_cases_dir: str = "test_cases/unit_test"):
         """初始化测试用例管理器
         
         Args:

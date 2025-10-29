@@ -1,0 +1,42 @@
+{
+  "case_id": "XXX_TEST_002",
+  "case_name": "XXX_测试_002",
+  "pre_commands": [
+    "cd /home/lijiao/work/TE-Agent/sample/display-GD-Agent-tool && rm -f ./main && ls -lrt && gcc -o main test.c && ls -lrt",
+    "cd /home/lijiao/work/TE-Agent/sample/GD-Agent/examples/StartedNode && rm -rf ./build && mkdir build && cp main.c build && ls -lrt && exit && exit",
+    "cd /home/lijiao/work/TE-Agent/sample/GD-Agent/examples/StartedNode/build && pwd && ls -lrt && gcc -o unit_test main.c && ls -lrt && exit && exit"
+  ],
+  "execution_steps": [
+    {
+      "exec_path": "/home/lijiao/work/TE-Agent/sample/display-GD-Agent-tool",
+      "command": "date; pwd; ./main test;",
+      "blocked_process":1,
+      "sleep_time":1,
+      "timeout": 1,
+      "expected_output": [
+        "start main with input parameter: test",
+        "epoll creat success"
+      ],
+      "expected_type": "terminal",
+      "expected_log":""
+    },
+    {
+      "exec_path": "/home/lijiao/work/TE-Agent/sample/GD-Agent/examples/StartedNode/build",
+      "command": "ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt;date;./unit_test;cat /etc/*lease; uname -a;ifconfig;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt;",
+      "blocked_process":0,
+      "sleep_time":1,
+      "timeout": 30,
+      "expected_output": [
+        "[       OK ] EmitterStateTest.StartedNodeWithNonEmptyGroupsIncrementsChildCount",
+        "[       OK ] EmitterStateTest.StartedNodeResetsAllFlags",
+        "[       OK ] EmitterStateTest.StartedNodeInNestedGroups",
+        "[  PASSED  ] 3 tests"
+      ],
+      "expected_type": "terminal",
+      "expected_log":""
+    }
+  ],
+  "post_commands": [
+    ""
+  ]
+}

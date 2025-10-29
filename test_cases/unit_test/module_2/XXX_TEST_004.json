@@ -1,0 +1,43 @@
+{
+  "case_id": "XXX_TEST_004",
+  "case_name": "XXX_测试_004",
+  "pre_commands": [
+    "cd /home/lijiao/work/TE-Agent/sample/display-GD-Agent-tool && date && ls /tmp/",
+    "cd /home/lijiao/work/TE-Agent/sample/GD-Agent/examples/StartedNode && date && rm -rf ./build && mkdir build && cp main.c build",
+    "cd /home/lijiao/work/TE-Agent/sample/GD-Agent/examples/StartedNode/build && date && pwd && ls -lrt && gcc -o unit_test main.c && ls -lrt",
+    "cd /home/lijiao/work/TE-Agent/sample; rm -f logfile.txt; touch logfile.txt;",
+    "cat /home/lijiao/work/TE-Agent/sample/logfile.txt && ls -lrt /home/lijiao/work/TE-Agent/sample/logfile.txt && echo 'aaaaaaaaa'>/home/lijiao/work/TE-Agent/sample/logfile.txt && cat /home/lijiao/work/TE-Agent/sample/logfile.txt;"
+  ],
+  "execution_steps": [
+    {
+      "exec_path": "/home/lijiao/work/TE-Agent/sample/display-GD-Agent-tool",
+      "command": "cat /home/lijiao/work/TE-Agent/logfile.txt; cp /home/lijiao/work/TE-Agent/logfile.txt.bak /home/lijiao/work/TE-Agent/logfile.txt;ls -lrt /home/lijiao/work/TE-Agent/logfile.txt; cat /home/lijiao/work/TE-Agent/logfile.txt;",
+      "blocked_process":0,
+      "sleep_time":1,
+      "timeout": 1,
+      "expected_output": [
+        ""
+      ],
+      "expected_type": "terminal",
+      "expected_log":""
+    },
+    {
+      "exec_path": "/home/lijiao/work/TE-Agent/sample/GD-Agent/examples/StartedNode/build",
+      "command": "ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt;date;./unit_test;cat /etc/*lease; uname -a;ifconfig;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt",
+      "blocked_process":0,
+      "sleep_time":1,
+      "timeout": 30,
+      "expected_output": [
+        "[       OK|OK ] EmitterStateTest.StartedNodeWithNonEmptyGroupsIncrementsChildCount",
+        "[       OK ] EmitterStateTest.StartedNodeResetsAllFlags",
+        "[       OK ] EmitterStateTest.StartedNodeInNestedGroups",
+        "[  PASSED  ] 4 tests"
+      ],
+      "expected_type": "logfile",
+      "expected_log": "/home/lijiao/work/TE-Agent/sample/logfile.txt"
+    }
+  ],
+  "post_commands": [
+    "ps -ef|grep './main'|grep -v grep|awk '{print $2}'|xargs -r kill -9"
+  ]
+}

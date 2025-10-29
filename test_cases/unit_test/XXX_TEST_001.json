@@ -1,0 +1,43 @@
+{
+  "case_id": "XXX_TEST_001",
+  "case_name": "XXX_测试_001",
+  "pre_commands": [
+    "cd /home/lijiao/work/TE-Agent/sample/GD-Agent/examples/StartedNode/build && date && cmake .. && make && ls -lrt",
+    "cd /home/lijiao/work/TE-Agent/sample/GD-Agent/examples/StartedNode && date && rm -rf ./build && mkdir build && cp main.c build && cd build && cmake .. && make ",
+    "cd /home/lijiao/work/TE-Agent/sample/GD-Agent/examples/StartedNode/build && date && pwd && ls -lrt && gcc -o unit_test main.c && ls -lrt"
+  ],
+  "execution_steps": [
+    {
+      "exec_path": "/home/lijiao/work/TE-Agent/sample/GD-Agent/examples/StartedNode",
+      "command": "date; pwd; cat /etc/*lease; uname -a; ls -lrt",
+      "blocked_process":0,
+      "sleep_time":1,
+      "timeout": 30,
+      "expected_output": [
+        ""
+      ],
+      "expected_type": "terminal",
+      "expected_log":""
+    },
+    {
+      "exec_path": "/home/lijiao/work/TE-Agent/sample/GD-Agent/examples/StartedNode/build",
+      "command": "date;./unit_test;cat /etc/*lease; uname -a;ifconfig;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt;ls -lrt",
+      "blocked_process":0,
+      "sleep_time":1,
+      "timeout": 30,
+      "expected_output": [
+        "[       OK ] EmitterStateTest.StartedNodeWithEmptyGroupsIncrementsDocCount",
+        "[       OK ] EmitterStateTest.StartedNodeWithNonEmptyGroupsIncrementsChildCount",
+        "[       OK ] EmitterStateTest.StartedNodeResetsAllFlags",
+        "[       OK ] EmitterStateTest.StartedNodeInNestedGroups",
+        "[  PASSED  ] 4 tests"
+      ],
+      "expected_type": "terminal",
+      "expected_log":""
+    }
+  ],
+  "post_commands": [
+    "date; pwd; ls -lrt;",
+    "ps -ef|grep './main'|grep -v grep|awk '{print $2}'|xargs -r kill -9"
+  ]
+}

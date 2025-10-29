@@ -1,0 +1,38 @@
+{
+  "case_id": "XXX_TEST_006",
+  "case_name": "XXX_测试_006",
+  "pre_commands": [
+    "cd /home/lijiao/work/TE-Agent/sample && ls -lrt"
+  ],
+  "execution_steps": [
+    {
+      "exec_path": "/home/lijiao/work/TE-Agent/sample/display-GD-Agent-tool",
+      "command": "",
+      "blocked_process":1,
+      "sleep_time":3,
+      "timeout": 30,
+      "expected_output": [
+        "start test with input parameter: test",
+        "--------test epoll creat success----------"
+      ],
+      "expected_type": "logfile",
+      "expected_log": "/home/lijiao/work/TE-Agent/sample/full_process_test.log"
+    },
+    {
+      "exec_path": "/home/lijiao/work/TE-Agent/sample/GD-Agent/examples/StartedNode/build",
+      "command": "",
+      "blocked_process":1,
+      "sleep_time":3,
+      "timeout": 30,
+      "expected_output": [
+        "start full process with input parameter: fullprocess",
+        "--------start full process success----------"
+      ],
+      "expected_type": "logfile",
+      "expected_log": "/home/lijiao/work/TE-Agent/sample/full_process_fullprocess.log"
+    }
+  ],
+  "post_commands": [
+    "date; pwd; ls -lrt;"
+  ]
+}

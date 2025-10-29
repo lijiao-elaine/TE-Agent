@@ -108,7 +108,15 @@ class ConfigManager:
     def get_env_DISPLAY(self) -> str:
         """获取测试报告保存目录"""
         return self.get("env.DISPLAY", ":0")
-		
+
+    def get_full_process_start_script(self) -> str:
+        """获取全流程脚本路径"""
+        return self.get("script.full_process_script", "")
+
+    def get_full_process_stop_script(self) -> str:
+        """获取终止全流程脚本路径"""
+        return self.get("script.stop_full_process_script", "")
+
     def save_config(self) -> None:
         """保存当前配置到文件（用于动态修改配置后持久化）"""
         with open(self.config_path, "w", encoding="utf-8") as f:
