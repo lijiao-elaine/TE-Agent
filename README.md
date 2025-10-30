@@ -205,9 +205,14 @@ TE_Agent/
 │   ├── __init__.py
 │   └── test_case_manager.py   # 测试用例管理类
 ├── test_cases/                # 用例文件，每个用例文件由一个json文件定义
-│   └── test_case_1.json       # case_name要与word测试细则文档中用例表格的“测试用例名称”完全一致，case_id也要与“标识”完全一致
+│   ├── full_process_test      # 全流程测试用例目录
+│       └── test_case_5.json   # 全流程测试用例， execution_steps.command 可为 "" ，此时仅检查被测系统日志
+│   └── unit_test              # 单元测试用例目录
+│       └── test_case_1.json       # case_name要与word测试细则文档中用例表格的“测试用例名称”完全一致，case_id也要与“标识”完全一致
 ├── test_cases_ohos/                # 鸿蒙系统下的用例文件，每个用例文件由一个json文件定义
-│   └── test_case_1.json
+│   ├── full_process_test      
+│   └── unit_test         
+│       └── test_case_1.json
 ├── reports/                # 报告和截图
 │   └── screenshots/
 ├── utils/                  # 工具函数
@@ -219,7 +224,7 @@ TE_Agent/
 ├── conftest.py        # pytest文件
 ├── main.py            # 入口
 ├── README.md  # readme文档
-├── version.md  # TE-Agent版本迭代说明文档
+├── version.txt  # TE-Agent版本迭代说明文档
 ├── requirements.txt  # python依赖包列表
 ├── TE-Agent_streamlit.py  # streamlit 脚本，用于在Web页面演示TE-Agent工具用法
 └── merged_word.docx  # 测试细则文档，用于读取文本用例，也是还未回填测试结果的测试报告
