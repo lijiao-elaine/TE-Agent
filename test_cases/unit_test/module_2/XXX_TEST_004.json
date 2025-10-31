@@ -11,7 +11,7 @@
   "execution_steps": [
     {
       "exec_path": "/home/lijiao/work/TE-Agent/sample/display-GD-Agent-tool",
-      "command": "cat /home/lijiao/work/TE-Agent/sample/logfile.txt; cp /home/lijiao/work/TE-Agent/sample/logfile.txt.bak /home/lijiao/work/TE-Agent/sample/logfile.txt;ls -lrt /home/lijiao/work/TE-Agent/sample/logfile.txt; cat /home/lijiao/work/TE-Agent/sample/logfile.txt;",
+      "command": "cat /home/lijiao/work/TE-Agent/sample/logfile.txt; cp /home/lijiao/work/TE-Agent/sample/logfile.txt.origin /home/lijiao/work/TE-Agent/sample/logfile.txt;ls -lrt /home/lijiao/work/TE-Agent/sample/logfile.txt; cat /home/lijiao/work/TE-Agent/sample/logfile.txt;",
       "blocked_process":0,
       "sleep_time":1,
       "timeout": 1,
