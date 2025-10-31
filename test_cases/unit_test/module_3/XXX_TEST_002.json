@@ -1,0 +1,32 @@
+{
+  "case_id": "XXX_TEST_002",
+  "case_name": "XXX_测试_002",
+  "pre_commands": [
+    "ls /home"
+  ],
+  "execution_steps": [
+    {
+      "exec_path": "/home",
+      "command": "ls; pwd",
+      "blocked_process":0,
+      "sleep_time":1,
+      "timeout": 30,
+      "expected_output": [
+        "root7"
+      ]
+    },
+    {
+      "exec_path": "/home",
+      "command": "ls; pwd",
+      "blocked_process":0,
+      "sleep_time":1,
+      "timeout": 30,
+      "expected_output": [
+        "root8"
+      ]
+    }
+  ],
+  "post_commands": [
+    "ls /home"
+  ]
+}
