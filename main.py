@@ -3,7 +3,7 @@
 TE-Agent: 测试用例自动化执行智能体
 主程序入口
 """
-
+import allure
 import argparse
 import pytest
 import traceback
@@ -112,6 +112,8 @@ def run_full_process_script(shell_script):
             f"执行全流程启动或停止脚本失败，（返回码: {returncode}）\n错误输出: {stderr}"
         )
 
+@allure.epic("测试用例执行")
+@allure.feature("批量用例执行")
 def test_run_case(case_path, init_test_session, batch):
     """pytest批量执行测试用例"""
     global SHELL_SCRIPT_EXECUTED
@@ -137,20 +139,63 @@ def test_run_case(case_path, init_test_session, batch):
         SHELL_SCRIPT_EXECUTED = True
 
     try:
-        case_path_obj = Path(case_path)
+        case_name = Path(case_path).stem
+        allure.dynamic.title(f"执行测试用例: {case_name}")
+        allure.dynamic.description(f"用例文件路径: {case_path}")
         case_manager = TestCaseManager()
-        test_case = case_manager.load_test_case(case_path_obj)
-        test_case["_source_path"] = str(case_path_obj)
 
-        agent = TestExecuteAgent()
-        final_state = agent.run(test_case)
+        with allure.step("加载测试用例"):
+            case_path_obj = Path(case_path)
+            test_case = case_manager.load_test_case(case_path_obj)
+            test_case["_source_path"] = str(case_path_obj)
 
+            # 在报告中附 用例基本信息
+            allure.attach(
+                f"用例名称: {case_name}\n"
+                f"文件路径: {case_path}",
+                "用例基本信息",
+                allure.attachment_type.TEXT
+            )
+        
+        with allure.step("工作流执行测试用例"):
+            agent = TestExecuteAgent()
+            final_state = agent.run(test_case)
+
+        with allure.step("验证测试结果"):
         # 断言用例结果
-        error_details = "\n".join(final_state['errors']) if final_state['errors'] else "无错误"
-        overall_result = final_state['case_result'].get("overall_result", "未知")
+            error_details = "\n".join(final_state['errors']) if final_state['errors'] else "无错误"
+            overall_result = final_state['case_result'].get("overall_result", "未知")
+
+            
+            result_info = {
+                "用例名称": {case_name},
+                "执行结果": overall_result,
+                "错误数量": len(final_state.get('errors', [])),
+                "错误详情": error_details
+            }
+
+            # 在报告中附 用例执行结果
+            allure.attach(
+                str(result_info),
+                "测试执行结果",
+                allure.attachment_type.JSON
+            )
+
+            if overall_result == "通过":
+                allure.dynamic.severity(allure.severity_level.NORMAL)
+            else:
+                allure.dynamic.severity(allure.severity_level.CRITICAL)
+            
         #print(f"用例 {test_case.get('case_id')} 执行结果：{overall_result}")
         assert overall_result == "通过", f"用例 {test_case['case_id']} 执行失败（结果：{overall_result}）\n错误详情:\n{error_details}"
     except Exception as e:
+        # 记录异常信息到 Allure
+        allure.attach(
+            traceback.format_exc(),
+            "异常堆栈信息",
+            allure.attachment_type.TEXT
+        )
+        allure.dynamic.severity(allure.severity_level.BLOCKER)
         #print(f"用例执行异常：{str(e)}\n{traceback.format_exc()}")
         pytest.fail(f"用例执行过程中发生异常: {str(e)}\n{traceback.format_exc()}")
 
@@ -196,6 +241,13 @@ if __name__ == "__main__":
         type=str,
         default=None
     )
+
+    parser.add_argument(
+        "-ar", "--allure_report",
+        help="是否生成allure报告结果",
+        type=bool,
+        default=True
+    )
     args = parser.parse_args()
 
     filtered_cases = []
@@ -225,7 +277,9 @@ if __name__ == "__main__":
     pytest_args = ["-v",  __file__]  # "--capture=tee-sys", ： 捕获 stdout/stderr 输出（用于报告生成）
     if args.report:
         pytest_args.extend([f"--html={args.report}", "--self-contained-html"])
-            
+    
+    if args.allure_report:
+        pytest_args.extend(["-p no:warnings", "--alluredir=allure-results", "-v"])
     # 执行测试
     exit_code = pytest.main(pytest_args)
 

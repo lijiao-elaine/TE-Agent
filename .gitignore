@@ -59,3 +59,4 @@ examples/*/build/
 
 # Logs directory
 logs/ 
+reports/
