@@ -5,6 +5,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Tuple, List
 import math
+from utils.command_executor import CommandExecutor
 import pdb
 
 class ScreenshotHandler:
@@ -515,7 +516,7 @@ class ScreenshotHandler:
     @staticmethod
     def capture_step_screenshot_logfile(screenshot_name: str, terminal_name:str, 
         remote_os: str,remote_ip: str, remote_user:str, remote_passwd:str,remote_hdc_port: str,
-        log_file:str, expected_keywords:List[str], screenshot_dir: str = "reports/screenshots") -> Tuple[bool, List[str]]:
+        log_file:str, cat_output_file:str, expected_keywords:List[str], screenshot_dir: str = "reports/screenshots") -> Tuple[bool, List[str]]:
         """
         捕获当前步骤的截图（适配WSL环境）
         :param screenshot_name: 测试结果截图名字的前缀（如XXX_TEST_001_screenshot_step_1）
@@ -546,6 +547,7 @@ class ScreenshotHandler:
             print(f"对测试步骤执行产生的日志做检查时，发现expected_keywords为空：{expected_keywords}")
             return (False, [])
         else:
+            terminal_name_logfile = f"view_logfile"
             for keyword in expected_keywords:
                 # 4. 拉起xterm终端，用于cat该步骤待检查的日志文件后grep预期输出结果，然后截图
                 core_cmd = f"cat {log_file} | grep -F -- '{keyword}'"
@@ -559,26 +561,26 @@ class ScreenshotHandler:
                         f"{core_cmd}; "  # 执行命令
                         'bash --rcfile ~/.bashrc_no_title --noprofile'
                     )
+                    command = ["xterm", "-T", terminal_name_logfile, "-geometry", f"120x40", "-e", f"bash", "-c", terminal_commands]
                 else:
+                    escaped_exec_cmd = CommandExecutor.escape_special_chars(core_cmd)
                     if remote_os != "HarmonyOS":
-                        print("clear_expected_logfile: 待验证远程非鸿蒙系统下，预处理清理日志的逻辑")
+                        #print("ScreenshotHandler.capture_step_screenshot_logfile: 待验证远程非鸿蒙系统下，对被测系统日志截图的逻辑")
                         terminal_commands = ( 
                             'export TERM=xterm-256color; '
                             f'expect -c "set timeout 30; '
                             f'spawn ssh {remote_user}@{remote_ip}; '
                             'expect { \n'
                             '   \\"Are you sure you want to continue connecting (yes/no)?\\" { send \\"yes\\r\\"; exp_continue; } \n'
-                            '   -re {[Pp]assword:?\s*|口令:?\s*} { send \\"' + remote_passwd + '\\r\\"; exp_continue; } \n'
+                            '   -re {[Pp]assword:?\\s*|口令:?\\s*} { send \\"' + remote_passwd + '\\r\\"; exp_continue; } \n'
                             '   \\"Permission denied\\" { exit 1; } \n'
-                            '   -re {[#$]\s*} { send \\"short_pwd=$(echo \\"$PWD\\" | sed \\"s|^$HOME|~|\\");\\r\\"; exp_continue; } \n'
-                            '   -re {[#$]\s*} { send \\"echo -n \\"$USER@$HOSTNAME:$short_pwd$ \\";\\r\\"; exp_continue; } \n'
-                            '   -re {[#$]\s*} { send \\"echo \\"' + core_cmd + '\\";\\r\\"; exp_continue; } \n' # 打印命令
-                            '   -re {[#$]\s*} { send \\"' + core_cmd + ';\\r\\"; interact; } \n'
+                            '   -re {[#$]\\s*} { send \\" ' + escaped_exec_cmd + ' 2>&1 | tee -a -;\\r\\"; interact; } \n'
                             '}; '
+                            'interact" 2>&1 | tee -a ' + cat_output_file + '; '
                             'bash --rcfile ~/.bashrc_no_title --noprofile'
                         )
                     else:
-                        print("clear_expected_logfile: 待验证远程鸿蒙系统下，预处理清理日志的逻辑")
+                        print("ScreenshotHandler.capture_step_screenshot_logfile: 待验证远程鸿蒙系统下，对被测系统日志截图的逻辑,cat结果需重定向到cat_output_file")
                         terminal_commands = (
                             'export TERM=xterm-256color; '
                             'stty cooked; '
@@ -591,21 +593,20 @@ class ScreenshotHandler:
                             '  short_pwd=$(echo "$PWD" | sed "s|^$HOME|~|"); '
                             '  echo -n "$USER@$HOSTNAME:$short_pwd$ "; '
                             f'  echo "{core_cmd}"; '  # 打印命令
-                            f'  hdc -t {remote_ip}:{remote_hdc_port} shell "{core_cmd}" ;'# 执行命令：子shell包裹
+                            f'  hdc -t {remote_ip}:{remote_hdc_port} shell "({core_cmd}) 2>&1" ;'# 执行命令：子shell包裹
                             f'  echo "命令执行完成，终端保持打开状态..." ; '
                             '  bash --rcfile ~/.bashrc_no_title --noprofile; ' # 保活
                             'fi'
                         )
-                terminal_name_logfile = f"view_logfile"
-                command = ["xterm", "-T", terminal_name_logfile, "-geometry", f"120x40", "-e", f"bash", "-c", terminal_commands]
+                    command = ["xterm", "-T", terminal_name_logfile, "-geometry", f"120x40", "-e", f"bash -c '{terminal_commands}'"]
                 proc = subprocess.Popen(
                     command,
                     stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
+                    stderr=subprocess.PIPE,
                     text=True,
                     shell=False
-                )
-                time.sleep(1)
+                    )
+                time.sleep(3)
 
                 # 对查看被测系统日志的xterm终端截图
                 timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
@@ -630,9 +631,4 @@ class ScreenshotHandler:
 
             return (True, screenshot_paths)
 
-
-        
-
-
-
-
+   

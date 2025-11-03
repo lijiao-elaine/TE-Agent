@@ -280,7 +280,9 @@ def run_fill_result(state: TestState) -> Dict:
                         state.add_error(f"第{step_idx + 1}步的被测程序执行时的xterm终端截图失败")
                     else:
                         state.add_log(f"已保存第{step_idx + 1}步的被测程序执行时的xterm终端截图: {screenshot_paths}")
-                elif actual_output and expected_type == "logfile":
+                elif expected_type == "logfile": # 远程执行用例时，利用截图时拉起终端cat远程日志，将cat结果重定向到本地，来获取 actual_output , 所以logfile场景不判断 actual_output
+                    cat_output_file = f"logs/{remote_ip}_{case_id}_step_{step_idx + 1}_cat_expected_logfile.log"
+                    # 远程场景执行用例时，被测系统日志不在本地，要拉起xterm终端cat远程日志后重定向到本地
                     success, screenshot_paths = ScreenshotHandler.capture_step_screenshot_logfile(
                         screenshot_name=f"{remote_ip}_{case_id}_screenshot_step_{step_idx + 1}",
                         screenshot_dir=config_manager.get_screenshot_dir(),
@@ -291,8 +293,12 @@ def run_fill_result(state: TestState) -> Dict:
                         remote_passwd=remote_passwd,
                         remote_hdc_port=remote_hdc_port,
                         log_file=log_file,
+                        cat_output_file=cat_output_file,
                         expected_keywords=step["expected_output"]
                     )
+                    if remote_ip != "127.0.0.1":
+                        # 本地执行用例时，用本地被测系统日志对比结果;远程执行时，用cat远程日志的结果比对;对比时，要排除有cat关键词的行
+                        actual_output = state.proc_manager.capture_output_file(cat_output_file) 
                     if not success:
                         state.add_error(f"第{step_idx + 1}步待检查的被测系统日志截图失败")
                     else:

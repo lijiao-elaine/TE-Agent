@@ -19,7 +19,7 @@
       "expected_log": "/home/lijiao/work/TE-Agent/sample/full_process_test.log"
     },
     {
-      "exec_path": "/home/lijiao/work/TE-Agent/sample/GD-Agent/examples/StartedNode/build",
+      "exec_path": "",
       "command": "",
       "blocked_process":1,
       "sleep_time":3,
