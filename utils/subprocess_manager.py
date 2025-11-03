@@ -480,8 +480,9 @@ class SubprocessManager:
         """
 
         try:
-            # 步骤1：验证待执行指令的目录是否存在; 远程执行用例的场景，就没必要验证了，因为如下语句是在本地验证该目录是否存在
-            if not os.path.isdir(cwd) and remote_ip == "127.0.0.1":
+            # 步骤1：验证待执行指令的目录是否存在; 远程执行用例的场景，不用验证，因为如下语句是在本地验证该目录是否存在；本地场景，要排除cwd为""的全流程用例的情况
+            #print(f"测试步骤中，指令执行的路径：{cwd}")
+            if len(cwd)>0 and not os.path.isdir(cwd) and remote_ip == "127.0.0.1":
                 raise FileNotFoundError(f"用例本地执行的场景下，要切换后用于执行指令的目录不存在：{cwd}")
 
             output_abs_path = self.create_log_file(log_path, log_file)
@@ -501,8 +502,8 @@ class SubprocessManager:
                 remote_hdc_port
                 )
 
-            if remote_ip == "127.0.0.1":
-                proc = subprocess.Popen(# 非阻塞启动xterm终端，执行用例指令
+            if remote_ip == "127.0.0.1" and len(cwd)>0:
+                proc = subprocess.Popen(# 非阻塞启动xterm终端，执行用例指令；如果全流程用例的cwd为空，需要单独处理
                     terminal_cmd,
                     cwd=cwd,
                     shell=False,
@@ -541,7 +542,7 @@ class SubprocessManager:
     def capture_output_file(self, output_file: str) -> str:
         """读取子进程输出文件的内容（实时捕获输出）"""
         if not os.path.exists(output_file):
-            print(f"子进程的实时输出日志不存在：{output_file}, 可能该步骤未成功拉起xterm终端")
+            print(f"子进程的实时输出日志或用例要检查的被测系统日志不存在：{output_file}, 可能该步骤未成功拉起xterm终端或被测程序执行不成功")
             return ""
         with open(output_file, "r", encoding="utf-8", errors="ignore") as f:
             return f.read()
