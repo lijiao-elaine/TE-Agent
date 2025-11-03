@@ -243,10 +243,10 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "-ar", "--allure_report",
-        help="是否生成allure报告结果",
-        type=bool,
-        default=True
+        "-ad", "--alluredir",
+        help="allure-results 存放的 jenkins 工作文件夹名称",
+        type=str,
+        default="allure_test"
     )
     args = parser.parse_args()
 
@@ -278,8 +278,9 @@ if __name__ == "__main__":
     if args.report:
         pytest_args.extend([f"--html={args.report}", "--self-contained-html"])
     
-    if args.allure_report:
-        pytest_args.extend(["-p no:warnings", "--alluredir=allure-results", "-v"])
+    if args.alluredir:
+        alluredir = os.path.join("/var/lib/jenkins/workspace", args.alluredir, "allure-results")
+        pytest_args.extend(["-p no:warnings", "--alluredir="+alluredir, "-v"])
     # 执行测试
     exit_code = pytest.main(pytest_args)
 

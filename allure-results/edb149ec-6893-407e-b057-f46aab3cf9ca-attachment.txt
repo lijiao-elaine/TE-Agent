@@ -1,2 +1,0 @@
-用例名称: XXX_TEST_001
-文件路径: /home/root7/code/TE-Agent/test_cases/unit_test/module_3/XXX_TEST_001.json
