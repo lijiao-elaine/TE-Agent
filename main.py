@@ -113,7 +113,6 @@ def run_full_process_script(shell_script):
         )
 
 @allure.epic("测试用例执行")
-@allure.feature("批量用例执行")
 def test_run_case(case_path, init_test_session, batch):
     """pytest批量执行测试用例"""
     global SHELL_SCRIPT_EXECUTED
@@ -148,6 +147,9 @@ def test_run_case(case_path, init_test_session, batch):
             case_path_obj = Path(case_path)
             test_case = case_manager.load_test_case(case_path_obj)
             test_case["_source_path"] = str(case_path_obj)
+            test_module = test_case["module"]
+
+            allure.dynamic.feature(f"{test_module}模块")
 
             # 在报告中附 用例基本信息
             allure.attach(
@@ -280,7 +282,7 @@ if __name__ == "__main__":
     
     if args.alluredir:
         alluredir = os.path.join("/var/lib/jenkins/workspace", args.alluredir, "allure-results")
-        pytest_args.extend(["-p no:warnings", "--alluredir="+alluredir, "-v"])
+        pytest_args.extend(["-p no:warnings", "--alluredir="+alluredir])
     # 执行测试
     exit_code = pytest.main(pytest_args)
 
