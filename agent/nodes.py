@@ -264,10 +264,14 @@ def run_fill_result(state: TestState) -> Dict:
                     log_file = expected_log
                     #print(f"!!! 通过被测系统日志 {log_file}比对预期结果，而不是与被测程序的终端输出打印比对")
 
-                actual_output = state.proc_manager.capture_output_file(log_file) # 放在if外面，在步骤执行完成但case_result.append前异常的情况，能正常读取到日志，回填正确结果
                 
+                actual_output = state.proc_manager.capture_output_file(log_file) # 放在if外面，在步骤执行完成但case_result.append前异常的情况，能正常读取到日志，回填正确结果
+                # 如下方法扩展了 capture_output_file ，支持cat远程执行机上被测系统日志重定向到本地后read, 但是日志文件大时可能会报ioctl(set): I/O error
+                #actual_output = state.proc_manager.capture_output_file_support_read_remote(output_file=log_file,remote_os=remote_os,
+                #        remote_ip=remote_ip, remote_user=remote_user, remote_passwd=remote_passwd, remote_hdc_port=remote_hdc_port)
+                #print(f"run_fill_result: after call capture_output_file_support_read_remote, actual_output:{actual_output}")
                 if actual_output and expected_type == "terminal":
-                    # 测试步骤的实时日志非空时，即已拉起了xterm终端并执行了用例指令，需要记录测试步骤截图
+                    # 测试步骤的实时日志非空时，即已拉起了xterm终端并执行了用例指令，需要记录测试步骤截图;远程场景执行用例时，终端输出也重定向到了本地
                     screenshot_paths = ScreenshotHandler.capture_step_screenshot_terminal(
                         screenshot_name=f"{remote_ip}_{case_id}_screenshot_step_{step_idx + 1}",
                         screenshot_dir=config_manager.get_screenshot_dir(),
@@ -282,7 +286,7 @@ def run_fill_result(state: TestState) -> Dict:
                         state.add_log(f"已保存第{step_idx + 1}步的被测程序执行时的xterm终端截图: {screenshot_paths}")
                 elif expected_type == "logfile": # 远程执行用例时，利用截图时拉起终端cat远程日志，将cat结果重定向到本地，来获取 actual_output , 所以logfile场景不判断 actual_output
                     cat_output_file = f"logs/{remote_ip}_{case_id}_step_{step_idx + 1}_cat_expected_logfile.log"
-                    # 远程场景执行用例时，被测系统日志不在本地，要拉起xterm终端cat远程日志后重定向到本地
+                    # 远程场景执行用例时，被测系统日志不在本地，要拉起xterm终端cat远程日志并|grep关键词后重定向到本地
                     success, screenshot_paths = ScreenshotHandler.capture_step_screenshot_logfile(
                         screenshot_name=f"{remote_ip}_{case_id}_screenshot_step_{step_idx + 1}",
                         screenshot_dir=config_manager.get_screenshot_dir(),
@@ -297,7 +301,7 @@ def run_fill_result(state: TestState) -> Dict:
                         expected_keywords=step["expected_output"]
                     )
                     if remote_ip != "127.0.0.1":
-                        # 本地执行用例时，用本地被测系统日志对比结果;远程执行时，用cat远程日志的结果比对;对比时，要排除有cat关键词的行
+                        # 本地执行用例时，用本地被测系统日志对比结果;远程执行时，用cat远程日志并|grep关键词的结果比对;对比时，要排除有cat、grep关键词的行
                         actual_output = state.proc_manager.capture_output_file(cat_output_file) 
                     if not success:
                         state.add_error(f"第{step_idx + 1}步待检查的被测系统日志截图失败")
@@ -342,6 +346,11 @@ def run_fill_result(state: TestState) -> Dict:
         state.case_result["overall_result"] = overall_result 
         case_result["overall_result"] = overall_result 
         state.add_log(f"用例最终结果: {overall_result}")
+
+        if overall_result == "不通过":
+            state.add_error(f"部分步骤的预期结果检查不通过")
+        elif overall_result != "通过":
+            state.add_error(f"{overall_result}")
 
         # 填充Word文档（按文档表格结构记录结果）
         result = WordReportFiller.fill_case_results(

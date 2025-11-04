@@ -14,14 +14,15 @@ execute_machine:
   remote_ip: "127.0.0.1" # 127.0.0.1  ubuntu remote: 192.168.137.100 （本地：192.168.137.110/255.255.255.0） harmonyos remote: 192.168.0.6 （本地： 192.168.0.110/255.255.255.0） 
   remote_os: ubuntu #   HarmonyOS 需要单独处理，其他的linux机器，如 ubuntu 统一处理
   remote_user: "root"
-  remote_passwd: "Mind@123"  #  ubuntu remote: Mind@123 , 鸿蒙系统需要密码
-  hdc_port: "5555" #  仅 HarmonyOS 需要需要配置，是 hdc shell 远程连接鸿蒙设备用的端口
+  remote_passwd: "Mind@123"  #  ubuntu remote: Mind@123 , 鸿蒙系统不需要密码
+  hdc_port: "5555" #  仅 HarmonyOS 需要配置，是 hdc shell 远程连接鸿蒙设备用的端口
 
 # 测试结果和报告路径配置
 reports:
   report_path: "reports"
   screenshot_dir: "reports/screenshots"  # 截图保存目录
   report_file: "reports/test_report.html"
+  allure_results: "reports/allure_results" # allure 报告的目录
 
 # 测试细则Word文档路径配置
 word_documents:

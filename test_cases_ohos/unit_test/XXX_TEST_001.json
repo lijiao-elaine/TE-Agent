@@ -1,6 +1,7 @@
 {
   "case_id": "XXX_TEST_001",
   "case_name": "XXX_测试_001",
+  "module": "观察O1",
   "pre_commands": [
     "date ; cd /data ; pwd ; ls -lrt ; cd /data/home/lijiao/work/zero_project_test ; pwd ; ls -lrt ; rm -f BLACKBORAD_GN_Test*.xml ; chmod +x BLACKBORAD_GN_Test ; ls -lrt"
   ],

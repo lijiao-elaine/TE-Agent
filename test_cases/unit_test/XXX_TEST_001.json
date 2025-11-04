@@ -1,6 +1,7 @@
 {
   "case_id": "XXX_TEST_001",
   "case_name": "XXX_测试_001",
+  "module": "观察O1",
   "pre_commands": [
     "cd /home/lijiao/work/TE-Agent/sample/GD-Agent/examples/StartedNode/build && date && cmake .. && make && ls -lrt",
     "cd /home/lijiao/work/TE-Agent/sample/GD-Agent/examples/StartedNode && date && rm -rf ./build && mkdir build && cp main.c build && cd build && cmake .. && make ",

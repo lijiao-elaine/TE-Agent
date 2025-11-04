@@ -1,6 +1,7 @@
 {
   "case_id": "XXX_TEST_006",
   "case_name": "XXX_测试_006",
+  "module": "全流程",
   "pre_commands": [
     "cd /home/lijiao/work/TE-Agent/sample && ls -lrt"
   ],

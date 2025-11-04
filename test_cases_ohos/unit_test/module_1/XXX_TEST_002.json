@@ -1,6 +1,7 @@
 {
   "case_id": "XXX_TEST_002",
   "case_name": "XXX_测试_002",
+  "module": "判断O2",
   "pre_commands": [
     "date && cd /data && pwd && ls -lrt",
     "cd /data && pwd && ls -lrt && cd /data/home/lijiao/work/zero_project_test  && pwd && ls -lrt && rm -f distributed_filesystem_GN_Test*.xml && chmod +x distributed_filesystem_GN_Test && ls -lrt"

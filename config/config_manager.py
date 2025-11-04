@@ -105,6 +105,10 @@ class ConfigManager:
         """获取测试报告保存目录"""
         return self.get("reports.report_file", "reports/test_report.html")
 
+    def get_allure_results_path(self) -> str:
+        """生成allure-results测试报告保存目录"""
+        return self.get("reports.allure_results", "reports/allure_results")
+
     def get_env_DISPLAY(self) -> str:
         """获取测试报告保存目录"""
         return self.get("env.DISPLAY", ":0")
