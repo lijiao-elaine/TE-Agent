@@ -1,7 +1,6 @@
 {
   "case_id": "XXX_TEST_001",
   "case_name": "XXX_测试_001",
-  "module": "场景",
   "pre_commands": [
     "ls /home"
   ],

@@ -112,7 +112,7 @@ def run_full_process_script(shell_script):
             f"执行全流程启动或停止脚本失败，（返回码: {returncode}）\n错误输出: {stderr}"
         )
 
-@allure.epic("测试用例执行")
+
 def test_run_case(case_path, init_test_session, batch):
     """pytest批量执行测试用例"""
     global SHELL_SCRIPT_EXECUTED
@@ -147,7 +147,10 @@ def test_run_case(case_path, init_test_session, batch):
             case_path_obj = Path(case_path)
             test_case = case_manager.load_test_case(case_path_obj)
             test_case["_source_path"] = str(case_path_obj)
-            test_module = test_case["module"]
+
+            epic = case_path_obj._str.split("TE-Agent/")[-1].split("/")[1]
+            test_module = case_path_obj._str.split("TE-Agent/")[-1].split("/")[2]
+            allure.dynamic.epic(epic)
 
             allure.dynamic.feature(f"{test_module}模块")
 

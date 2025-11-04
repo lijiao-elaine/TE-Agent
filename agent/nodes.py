@@ -15,6 +15,7 @@ from utils.word_report_filler import WordReportFiller
 from agent.state import TestState
 from config.config_manager import ConfigManager  # 导入配置管理器
 import subprocess
+import allure
 
 
 def run_pre_commands(state: TestState) -> Dict:
@@ -280,6 +281,22 @@ def run_fill_result(state: TestState) -> Dict:
                         state.add_error(f"第{step_idx + 1}步的被测程序执行时的xterm终端截图失败")
                     else:
                         state.add_log(f"已保存第{step_idx + 1}步的被测程序执行时的xterm终端截图: {screenshot_paths}")
+                        
+                        for idx, image in enumerate(screenshot_paths):
+                            with open(image, "rb") as f:
+                                image_data = f.read()
+                            if(len(screenshot_paths)==1):
+                                allure.attach(
+                                    image_data,
+                                    name=f"步骤{step_idx + 1}截图：",
+                                    attachment_type=allure.attachment_type.PNG
+                                )
+                            else:
+                                allure.attach(
+                                    image_data,
+                                    name=f"步骤{step_idx + 1}第{idx+1}张截图：",
+                                    attachment_type=allure.attachment_type.PNG
+                                )
                 elif expected_type == "logfile": # 远程执行用例时，利用截图时拉起终端cat远程日志，将cat结果重定向到本地，来获取 actual_output , 所以logfile场景不判断 actual_output
                     cat_output_file = f"logs/{remote_ip}_{case_id}_step_{step_idx + 1}_cat_expected_logfile.log"
                     # 远程场景执行用例时，被测系统日志不在本地，要拉起xterm终端cat远程日志后重定向到本地

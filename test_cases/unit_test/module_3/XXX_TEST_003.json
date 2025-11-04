@@ -1,7 +1,6 @@
 {
   "case_id": "XXX_TEST_003",
   "case_name": "XXX_测试_003",
-  "module": "观察",
   "pre_commands": [
     "ls /home"
   ],
