@@ -162,9 +162,9 @@ def test_run_case(case_path, init_test_session, batch):
                 allure.attachment_type.TEXT
             )
         
-        with allure.step("工作流执行测试用例"):
-            agent = TestExecuteAgent()
-            final_state = agent.run(test_case)
+        # with allure.step("工作流执行测试用例"):
+        agent = TestExecuteAgent()
+        final_state = agent.run(test_case)
 
         with allure.step("验证测试结果"):
         # 断言用例结果
@@ -249,9 +249,9 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "-ad", "--alluredir",
-        help="allure-results 存放的 jenkins 工作文件夹名称",
-        type=str,
-        default="allure_test"
+        help="是否生成 allure-results",
+        type=bool,
+        default=True
     )
     args = parser.parse_args()
 
@@ -284,9 +284,11 @@ if __name__ == "__main__":
         pytest_args.extend([f"--html={args.report}", "--self-contained-html"])
     
     if args.alluredir:
-        alluredir = os.path.join("/var/lib/jenkins/workspace", args.alluredir, "allure-results")
+        #alluredir = os.path.join("/var/lib/jenkins/workspace", args.alluredir, "allure-results")
+        alluredir = os.path.join("./result", "allure-results")
+        print("/home/root7/code/TE-Agent/result****",alluredir)
         pytest_args.extend(["-p no:warnings", "--alluredir="+alluredir])
-    # 执行测试
+    # 执行测()
     exit_code = pytest.main(pytest_args)
 
     print(f"所有单元测试用例和全流程用例执行完成， pytest 会话执行完成，退出码：{exit_code}")

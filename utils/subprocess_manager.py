@@ -226,7 +226,7 @@ class SubprocessManager:
                     "-geometry", f"120x{terminal_line_num}",
                     "-e", wrapper_script, cmd_script
                 ]
-            else: # 本地运行TE-Agent工具，下位机执行用例可执行程序
+            else: # 本地运行TE-Agent工具，下位机执行用例可执行程序，远程执行命令，并将退出码和错误信息回传
                 escaped_exec_cmd = self.escape_special_chars(exec_cmd) # 对exec_cmd进行转义处理
                 remote_error_file = f"/tmp/{remote_ip}_{terminal_name}_remote_command_error_{timestamp}.tmp"
                 remote_exit_code = f"/tmp/{remote_ip}_{terminal_name}_remote_exit_code_{timestamp}.tmp"

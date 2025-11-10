@@ -22,7 +22,7 @@
       "sleep_time":1,
       "timeout": 30,
       "expected_output": [
-        "root8"
+        "root7"
       ]
     }
   ],

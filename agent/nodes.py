@@ -93,106 +93,114 @@ def run_pre_commands(state: TestState) -> Dict:
 def run_test_step(state: TestState) -> Dict:
     """步骤执行节点：按顺序执行测试步骤（适配 merged_document.docx 中测试步骤）"""
     print("="*40+"run_test_step"+"="*40)
-    try:
-        config_manager = ConfigManager()
-        case_config = state.case_config
-        case_result = state.case_result.copy()
-        step_idx = state.current_step
-        steps = case_config["execution_steps"]
-        case_id = case_config["case_id"]
-        log_path = config_manager.get_log_path()
-        terminal_name=f"{case_id}_step_{step_idx + 1}"
-        errors = state.errors
+    with allure.step(f"执行步骤{state.current_step+1}"):
+        print("="*40+"run_test_step"+"="*40)
+        try:
+            config_manager = ConfigManager()
+            case_config = state.case_config
+            case_result = state.case_result.copy()
+            step_idx = state.current_step
+            steps = case_config["execution_steps"]
+            case_id = case_config["case_id"]
+            log_path = config_manager.get_log_path()
+            terminal_name=f"{case_id}_step_{step_idx + 1}"
+            errors = state.errors
 
-        if step_idx < 0 or errors:
-            state.add_log("检测到错误状态，跳过步骤执行")
-            return {"current_step": step_idx}
+            if step_idx < 0 or errors:
+                state.add_log("检测到错误状态，跳过步骤执行")
+                return {"current_step": step_idx}
 
-        if step_idx >= len(steps):
-            state.add_log("所有测试步骤已执行完成")
-            return {"current_step": step_idx}
+            if step_idx >= len(steps):
+                state.add_log("所有测试步骤已执行完成")
+                return {"current_step": step_idx}
 
-        # 执行当前步骤
-        step = steps[step_idx]
-        state.add_log(f"开始执行步骤 {step_idx + 1}/{len(steps)}: {step['command']}")
-        
-        timeout = step.get("timeout", config_manager.get_default_timeout())
-        sleep_time = step.get("sleep_time", config_manager.get_default_sleep_time())
-        blocked_process = step['blocked_process']
-        remote_os = config_manager.get_remote_os()
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        remote_ip = config_manager.get_remote_ip()
-        remote_user = config_manager.get_remote_user()
-        remote_passwd = config_manager.get_remote_passwd()
-        remote_hdc_port = config_manager.get_hdc_port()
-        log_file_name=f"{remote_ip}_{case_id}_log_step_{step_idx + 1}_{timestamp}.log"
-        
-        #if step_idx == 1:
-        #    raise Exception(f"raise Exception，用于验证执行部分步骤后，某个步骤还未执行且未记录case_result就异常的场景")
+            # 执行当前步骤
+            step = steps[step_idx]
+            state.add_log(f"开始执行步骤 {step_idx + 1}/{len(steps)}: {step['command']}")
 
-        # 启动子进程执行测试步骤的shell指令
-        success, process, errmsg, returncode = state.proc_manager.start_subprocess(
-            exec_cmd=step["command"],
-            cwd=step["exec_path"],
-            blocked_process=blocked_process,
-            log_path=log_path,
-            terminal_name=terminal_name,
-            terminal_line_num=40,
-            log_file=log_file_name,
-            timeout=timeout,
-            sleep_time=sleep_time,
-            remote_os=remote_os,
-            remote_ip=remote_ip,
-            remote_user=remote_user,
-            remote_passwd=remote_passwd,
-            remote_hdc_port=remote_hdc_port
-        )
+            allure.attach(
+                f"开始执行步骤 {step_idx + 1}/{len(steps)}: {step['command']}",
+                "执行命令：",
+                allure.attachment_type.TEXT
+            )
+            
+            timeout = step.get("timeout", config_manager.get_default_timeout())
+            sleep_time = step.get("sleep_time", config_manager.get_default_sleep_time())
+            blocked_process = step['blocked_process']
+            remote_os = config_manager.get_remote_os()
+            timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+            remote_ip = config_manager.get_remote_ip()
+            remote_user = config_manager.get_remote_user()
+            remote_passwd = config_manager.get_remote_passwd()
+            remote_hdc_port = config_manager.get_hdc_port()
+            log_file_name=f"{remote_ip}_{case_id}_log_step_{step_idx + 1}_{timestamp}.log"
+            
+            #if step_idx == 1:
+            #    raise Exception(f"raise Exception，用于验证执行部分步骤后，某个步骤还未执行且未记录case_result就异常的场景")
+
+            # 启动子进程执行测试步骤的shell指令
+            success, process, errmsg, returncode = state.proc_manager.start_subprocess(
+                exec_cmd=step["command"],
+                cwd=step["exec_path"],
+                blocked_process=blocked_process,
+                log_path=log_path,
+                terminal_name=terminal_name,
+                terminal_line_num=40,
+                log_file=log_file_name,
+                timeout=timeout,
+                sleep_time=sleep_time,
+                remote_os=remote_os,
+                remote_ip=remote_ip,
+                remote_user=remote_user,
+                remote_passwd=remote_passwd,
+                remote_hdc_port=remote_hdc_port
+            )
 
 
-        # 记录子进程 PID
-        #state.processes.extend([proc.pid for proc, _ in state.proc_manager.subprocesses])
-        pids = {proc.pid for proc, _ in state.proc_manager.subprocesses}
-        state.processes.extend(pids) # 将 state.proc_manager.subprocesses列表中的所有进程id追加到state.processes中
+            # 记录子进程 PID
+            #state.processes.extend([proc.pid for proc, _ in state.proc_manager.subprocesses])
+            pids = {proc.pid for proc, _ in state.proc_manager.subprocesses}
+            state.processes.extend(pids) # 将 state.proc_manager.subprocesses列表中的所有进程id追加到state.processes中
 
-        if errmsg:
-            state.add_error(f"测试步骤执行终端输出, errmsg:{errmsg}")
+            if errmsg:
+                state.add_error(f"测试步骤执行终端输出, errmsg:{errmsg}")
 
-        log_file = state.proc_manager._get_subprocess_log_file(process.pid)
+            log_file = state.proc_manager._get_subprocess_log_file(process.pid)
 
-        state.add_log(f"测试步骤执行完成, 终端输出将保存到：{log_file}")
-        state.add_log(f"测试步骤执行完成（subprocess.Popen子进程返回码: {returncode}，0:退出，None:未退出）") 
+            state.add_log(f"测试步骤执行完成, 终端输出将保存到：{log_file}")
+            state.add_log(f"测试步骤执行完成（subprocess.Popen子进程返回码: {returncode}，0:退出，None:未退出）") 
 
-        #if step_idx == 1:
-        #    raise Exception(f"raise Exception，用于验证执行部分步骤后，某个步骤执行完成但未记录case_result就异常的场景") 
+            #if step_idx == 1:
+            #    raise Exception(f"raise Exception，用于验证执行部分步骤后，某个步骤执行完成但未记录case_result就异常的场景") 
 
-        # 记录步骤信息（但还未判断步骤执行结果，仅用于先将步骤信息追加进结果列表）
-        case_result["steps"].append({
-            "step_idx": step_idx + 1,
-            "command": step["command"],
-            "expected_output": step["expected_output"],
-            "keyword_check": "",
-            "log_file":log_file,
-            "screenshot_path": "",
-            "returncode": returncode,  # 记录返回码用于后续校验
-            "process_id":process.pid,
-            "step_result": ""
-        })
+            # 记录步骤信息（但还未判断步骤执行结果，仅用于先将步骤信息追加进结果列表）
+            case_result["steps"].append({
+                "step_idx": step_idx + 1,
+                "command": step["command"],
+                "expected_output": step["expected_output"],
+                "keyword_check": "",
+                "log_file":log_file,
+                "screenshot_path": "",
+                "returncode": returncode,  # 记录返回码用于后续校验
+                "process_id":process.pid,
+                "step_result": ""
+            })
 
-        #if step_idx == 1:
-        #    raise Exception(f"case_result[steps].append后raise Exception，用于验证执行部分步骤后，某个步骤执行完成且已记录case_result后异常的场景")
+            #if step_idx == 1:
+            #    raise Exception(f"case_result[steps].append后raise Exception，用于验证执行部分步骤后，某个步骤执行完成且已记录case_result后异常的场景")
 
-        return {
-            "current_step": step_idx + 1,
-            "case_result": case_result
-        }
-    except Exception as e:
-        error_msg = f"步骤 {step_idx + 1} 执行出现Exception异常: {str(e)}\n{traceback.format_exc()}"
-        state.add_error(error_msg)
-        state.current_step = step_idx + 1
-        return {
-            "current_step": step_idx + 1,
-            "case_result": case_result
-        }
+            return {
+                "current_step": step_idx + 1,
+                "case_result": case_result
+            }
+        except Exception as e:
+            error_msg = f"步骤 {step_idx + 1} 执行出现Exception异常: {str(e)}\n{traceback.format_exc()}"
+            state.add_error(error_msg)
+            state.current_step = step_idx + 1
+            return {
+                "current_step": step_idx + 1,
+                "case_result": case_result
+            }
 
 def should_continue(state: TestState) -> str:
     """条件函数：判断是否继续执行下一步测试步骤"""
@@ -282,7 +290,7 @@ def run_fill_result(state: TestState) -> Dict:
                     else:
                         state.add_log(f"已保存第{step_idx + 1}步的被测程序执行时的xterm终端截图: {screenshot_paths}")
                         
-                        for idx, image in enumerate(screenshot_paths):
+                        for idx, image in enumerate(reversed(screenshot_paths)):
                             with open(image, "rb") as f:
                                 image_data = f.read()
                             if(len(screenshot_paths)==1):
@@ -294,7 +302,7 @@ def run_fill_result(state: TestState) -> Dict:
                             else:
                                 allure.attach(
                                     image_data,
-                                    name=f"步骤{step_idx + 1}第{idx+1}张截图：",
+                                    name=f"步骤{step_idx + 1}第{len(screenshot_paths)-idx}张截图：",
                                     attachment_type=allure.attachment_type.PNG
                                 )
                 elif expected_type == "logfile": # 远程执行用例时，利用截图时拉起终端cat远程日志，将cat结果重定向到本地，来获取 actual_output , 所以logfile场景不判断 actual_output
