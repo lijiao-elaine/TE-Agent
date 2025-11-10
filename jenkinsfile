@@ -1,0 +1,124 @@
+pipeline {
+    agent any
+    
+    tools {
+        allure 'Allure'  // 确保与全局配置的 Allure 工具名称一致
+    }
+    
+    environment {
+        LOCAL_REPO_PATH = "/home/lijiao/work/gitCloneRepo/TE-Agent" //GIT_REPO = "https://github.com/lijiao-elaine/TE-Agent.git"
+        PYTHON_PATH = "/usr/bin/python3.10"
+        ALLURE_PATH = "/opt/allure/allure-2.34.0/bin/allure"
+        TEST_SCRIPT = "main.py"
+        ALLURE_RESULTS = "reports/allure_results"// Allure 结果目录
+        ALLURE_REPORT = "allure-report"    // Allure 报告输出目录
+        REPORT_PATH = "reports/jenkins-test-report.html"
+        GIT_BRANCH = "main"
+    }
+    
+    stages {
+        stage('从本地仓库拉取代码') {
+            steps {
+                echo "===== 从本地仓库 ${LOCAL_REPO_PATH} 拉取 ${GIT_BRANCH} 分支 ====="
+                checkout([
+                    $class: 'GitSCM',
+                    branches: [[name: "*/${GIT_BRANCH}"]],
+                    doGenerateSubmoduleConfigurations: false,
+                    extensions: [
+                        // 可选：拉取前清理工作区（避免残留文件影响）
+                        [$class: 'CleanCheckout']
+                    ],
+                    submoduleCfg: [],
+                    // 通过 file:// 协议指定本地仓库路径  userRemoteConfigs: [[url: "${GIT_REPO}"]]
+                    userRemoteConfigs: [[url: "file://${LOCAL_REPO_PATH}"]]
+                ])
+            }
+        }
+        
+        stage('安装依赖') {
+            steps {
+                //echo "===== 安装 Python 依赖 ====="
+                //${PYTHON_PATH} -m pip install --upgrade pip
+                //sh """
+                //    ${PYTHON_PATH} -m pip install -r requirements.txt
+                //"""
+                echo "===== 确保 Allure 命令可用 ====="
+                sh """
+                    env -i PATH="$PATH" ${ALLURE_PATH} --version || {
+                        echo "Allure 路径错误"
+                        exit 1
+                    }
+                """
+            }
+        }
+        
+        stage('准备测试环境') {
+            steps {
+                echo "===== 创建报告和结果目录 ====="
+                sh """
+                    mkdir -p reports ${ALLURE_RESULTS}  ${ALLURE_REPORT}
+                    chmod -R 755 reports ${ALLURE_RESULTS}  ${ALLURE_REPORT}
+                """
+            }
+        }
+        
+        stage('执行测试') {
+            steps {
+                echo "===== 执行自动化测试 ====="
+                //-m test_cases/unit_test/module_1 \
+                sh """
+                    ${PYTHON_PATH} ${TEST_SCRIPT} \
+                    -r ${REPORT_PATH} -a ${ALLURE_RESULTS}
+                """
+            }
+        }
+        
+        stage('生成 Allure 报告') {
+            steps {
+                echo "===== 用 allure 命令生成报告 ====="
+                sh """
+                    # 同样清空环境变量后执行
+                    JAVA_OPTS="" _JAVA_OPTIONS="" /opt/allure/allure-2.34.0/bin/allure generate ${ALLURE_RESULTS} -o ${ALLURE_REPORT} --clean
+                """
+                // 归档报告目录，便于在 Jenkins 中查看
+                archiveArtifacts artifacts: "${ALLURE_REPORT}/**/*", fingerprint: true
+                archiveArtifacts artifacts: "${REPORT_PATH}", fingerprint: true
+            }
+        }
+        
+        stage('展示 Allure 报告') {
+            steps {
+                script {
+                    // 强制清空可能导致冲突的 Java 环境变量
+                    withEnv([
+                        'JAVA_OPTS=',
+                        '_JAVA_OPTIONS=',
+                        'ALLURE_OPTS='
+                    ]) 
+                    // 读取 Allure 结果目录，在 Jenkins 界面生成报告
+                    {
+                        allure([
+                            includeProperties: false,
+                            jdk: '',
+                            properties: [],
+                            reportBuildPolicy: 'ALWAYS',  // 无论成功/失败都生成报告
+                            results: [[path: "${ALLURE_RESULTS}"]]  // 指向结果目录（与测试输出一致）
+                        ])
+                    }
+                }
+            }
+        }
+        
+        stage('报告展示说明') {
+            steps {
+                echo "===== 测试报告生成完成 ====="
+                echo "Allure 报告：点击流水线页面左侧「Allure Report」查看"
+                echo "原生 HTML 报告：在「归档 artifacts」中下载 ${REPORT_PATH} 查看"
+            }
+        }
+    }
+    post {
+        success { echo "===== 流水线成功 =====" }
+        failure { echo "===== 流水线失败 =====" }
+    }
+}

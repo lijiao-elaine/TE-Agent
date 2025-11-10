@@ -150,6 +150,7 @@ def test_run_case(case_path, init_test_session, batch):
         case_type = "全流程测试" if batch == 2 else "单元测试"
         case_module = test_case.get("module", "未知特性模块")
 
+        allure.dynamic.suite(f"{case_module}模块")
         allure.dynamic.feature(f"{case_type}")
         allure.dynamic.story(f"{case_module}模块")
         allure.dynamic.title(f"执行测试用例：{case_name}")
@@ -190,6 +191,7 @@ def test_run_case(case_path, init_test_session, batch):
         assert overall_result == "通过", f"用例 {test_case['case_id']} 执行失败（结果：{overall_result}）\n错误详情:\n{error_details}"
     except Exception as e:
         #print(f"用例执行异常：{str(e)}\n{traceback.format_exc()}")
+        exception_info = f"{str(e)}\n{traceback.format_exc()}"
         pytest.fail(f"用例执行过程中发生异常: {str(e)}\n{traceback.format_exc()}")
 
 
@@ -299,6 +301,6 @@ if __name__ == "__main__":
         else:
             print(f"警告：stop全流程的脚本不存在 - {stop_script_path}")
     
-    # 本地直接渲染 Allure 报告（执行后自动打开浏览器）
-    if os.path.exists(args.alluredir):
-        os.system(f"allure serve {args.alluredir}")
+    # 本地直接渲染 Allure 报告（执行后自动打开浏览器）。可在调试时按需打开，后续批量执行或集成到jenkins流水线后需要注释
+    #if os.path.exists(args.alluredir):
+    #    os.system(f"allure serve {args.alluredir}")

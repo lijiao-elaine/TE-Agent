@@ -46,9 +46,17 @@ Thumbs.db
 
 # Project specific
 test_documentation.md
-*.md
 !README.md
 build/
+logs/
+reports/
+scripts/
+sample/full_process_fullprocess.log
+sample/full_process_fullprocess.log.bak
+sample/full_process_test.log
+sample/full_process_test.log.bak
+sample/logfile.txt
+sample/nohup.out
 *.log
 
 # CMake build directories
