@@ -1,6 +1,7 @@
 {
   "case_id": "XXX_TEST_004",
   "case_name": "XXX_测试_004",
+  "module": "动作A",
   "pre_commands": [
     "cd /home/lijiao/work/TE-Agent/sample/display-GD-Agent-tool && date && ls /tmp/",
     "cd /home/lijiao/work/TE-Agent/sample/GD-Agent/examples/StartedNode && date && rm -rf ./build && mkdir build && cp main.c build",

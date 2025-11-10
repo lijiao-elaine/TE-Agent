@@ -46,6 +46,7 @@ sudo apt install netpbm -y #安装pnmtopng
 sudo apt install xdotool # 安装窗口控制工具
 sudo apt install wmctrl
 sudo apt-get install expect
+apt install allure # 安装 Allure 命令行工具（用于渲染报告，需提前安装 Java 8+）
 ```
 
 ### 3. 配置系统参数
@@ -70,13 +71,14 @@ scp main root@192.168.137.100:/home/lijiao/work/TE-Agent/sample/display-GD-Agent
 {
   "case_id": "XXX_TEST_001", # 用例id，需要与word测试细则文档中的用例“标识”一致且唯一，必填
   "case_name": "XXX_测试_001", # 用例id，需要与word测试细则文档中的用例“测试用例名称”一致，必填
+  "module": "观察O1",
   "pre_commands": [ # 用例预处理步骤
     "cd /home/lijiao/work/TE-Agent/sample/GD-Agent/examples/StartedNode && rm -rf ./build && mkdir build && cp main.c build && ls -lrt",
     "cd /home/lijiao/work/TE-Agent/sample/GD-Agent/examples/StartedNode/build && pwd && ls -lrt && gcc -o unit_test main.c && ls -lrt"
   ],
   "execution_steps": [ # 每个用例的多个执行步骤，其中步骤的数量和顺序，应该严格与word测试细则文档中一致，否则填写测试结果时会发生错乱，必填
     {
-      "exec_path": "/home/lijiao/work/TE-Agent/sample/GD-Agent/examples/StartedNode", # 必填
+      "exec_path": "/home/lijiao/work/TE-Agent/sample/GD-Agent/examples/StartedNode", # 必填，全流程用例可以填：""
       "command": "date;cd /home/lijiao/work/TE-Agent/sample/GD-Agent/examples/StartedNode/build && ls -lrt && ls -lrt", # 必填，全流程用例可以填：""
       "blocked_process":0, # 表明 command 启动的进程是否始终保持在前台不退出，不退出即为阻塞式的，需要配置为1，否则为0
       "sleep_time":1, # 如果blocked_process值为0，则sleep_time必须配置，且不能过大，比当前步骤的command执行时长稍长1秒左右即可

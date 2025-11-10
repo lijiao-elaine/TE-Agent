@@ -1,6 +1,7 @@
 {
   "case_id": "XXX_TEST_002",
   "case_name": "XXX_测试_002",
+  "module": "判断O2",
   "pre_commands": [
     "cd /home/lijiao/work/TE-Agent/sample/display-GD-Agent-tool && rm -f ./main && ls -lrt && gcc -o main test.c && ls -lrt",
     "cd /home/lijiao/work/TE-Agent/sample/GD-Agent/examples/StartedNode && rm -rf ./build && mkdir build && cp main.c build && ls -lrt && exit && exit",

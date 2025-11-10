@@ -62,14 +62,35 @@ def pytest_configure(config):
     cli_html_path = config.getoption("--html")
     if not cli_html_path:  # 仅当命令行未指定时，使用配置文件中的默认路径
         os.environ["REPORT_PATH"] = str(report_path)
-        # 设置配置中的报告路径
-        config.option.htmlpath = os.path.abspath(str(report_path))
+        config.option.htmlpath = os.path.abspath(str(report_path)) # 设置配置中的报告路径
         config.option.self_contained_html = True
         config.option.html_show_all_errors = True
         print(f"钩子函数pytest_configure中设置报告路径: {config.option.htmlpath}")
     else:
         os.environ["REPORT_PATH"] = cli_html_path
         print(f"使用命令行指定的报告路径: {os.path.abspath(cli_html_path)}")
+    report_path = os.getenv("REPORT_PATH", "")
+    report_dir = Path(report_path).parent
+    clean_directory(report_dir)
+    report_dir.mkdir(parents=True, exist_ok=True)
+    os.chmod(report_dir, 0o755)  # 添加写入权限
+
+    # 处理 Allure 结果路径
+    default_allure_path = Path(config_manager.get_allure_results_path())  
+    # 1. 读取命令行传入的 --alluredir 参数
+    cli_allure_path = config.getoption("--alluredir")
+    if not cli_allure_path: # 确定最终的 Allure 路径（命令行优先，否则用配置文件默认值）
+        allure_path = default_allure_path
+        os.environ["ALLURE_RESULTS_PATH"] = str(allure_path)
+        config.option.alluredir = os.path.abspath(str(allure_path)) # 设置 config.yaml 配置中的 alluredir（同步给 allure-pytest 插件）
+        print(f"钩子函数pytest_configure中设置 Allure 结果路径: {config.option.alluredir}")
+    else:
+        allure_path = Path(cli_allure_path)
+        os.environ["ALLURE_RESULTS_PATH"] = cli_allure_path
+        print(f"使用命令行指定的 Allure 结果路径: {os.path.abspath(cli_allure_path)}")
+    # 确保 Allure 目录存在（关键：避免文件写入失败）
+    if not allure_path.exists():
+        allure_path.mkdir(parents=True, exist_ok=True)
 
 
 # pytest钩子，强制先执行 batch1 标记的用例
@@ -92,21 +113,22 @@ def init_test_session(request):
         env_DISPLAY = config_manager.get_env_DISPLAY()
 
         # 创建报告目录和截图目录、创建日志目录
+        '''
         report_path = os.getenv("REPORT_PATH", "")
         if report_path:
             report_dir = Path(report_path).parent
         else:
             report_dir = Path(config_manager.get_report_file()).parent
         clean_directory(report_dir)
-        
+        report_dir.mkdir(parents=True, exist_ok=True)
+        os.chmod(report_dir, 0o755)  # 添加写入权限
+        '''
         screenshot_dir = Path(config_manager.get_screenshot_dir())
         clean_directory(screenshot_dir)
 
         log_dir = Path(config_manager.get_log_path())
         clean_directory(log_dir)
-
-        report_dir.mkdir(parents=True, exist_ok=True)
-        os.chmod(report_dir, 0o755)  # 添加写入权限
+        
         screenshot_dir.mkdir(parents=True, exist_ok=True)
         log_dir.mkdir(parents=True, exist_ok=True)
         
@@ -118,6 +140,7 @@ def init_test_session(request):
                 new_word_file=config_manager.get_result_word_file()
             )
 
+        report_path = os.getenv("REPORT_PATH", "")
         print(f"测试报告将生成至: {os.path.abspath(report_path)}")
 
         if remote_ip != "127.0.0.1" and remote_os == "HarmonyOS": 
@@ -135,3 +158,4 @@ def init_test_session(request):
     except Exception as e:
         print(f"初始化测试会话失败: {str(e)}")
         raise
+

@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import List, Dict, Optional, Any
 from docx import Document
 from pathlib import Path
+import random
 
 class TestCaseManager:
     """测试用例管理器，负责测试用例文件的加载、解析和验证"""
@@ -39,6 +40,7 @@ class TestCaseManager:
         
         # 递归查找所有.json文件, rglob模式会匹配所有子目录
         json_files = list(self.test_cases_dir.rglob("*.json"))
+        random.shuffle(json_files) # 打乱列表顺序（原地修改）
         
         if not json_files:
             print(f"警告: 在 {self.test_cases_dir.absolute()} 及其子目录中未找到任何JSON用例文件")

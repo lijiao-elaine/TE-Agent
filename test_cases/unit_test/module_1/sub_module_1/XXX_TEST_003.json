@@ -1,6 +1,7 @@
 {
   "case_id": "XXX_TEST_003",
   "case_name": "XXX_测试_003",
+  "module": "决策D",
   "pre_commands": [
     "cd /home/lijiao/work/TE-Agent/sample/GD-Agent/examples/StartedNode && pwd && ls -lrt"
   ],

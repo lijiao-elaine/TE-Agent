@@ -15,6 +15,8 @@ from utils.command_executor import CommandExecutor
 import os
 import subprocess
 import time
+import allure
+from allure_commons.types import AttachmentType
 
 # 全局变量：记录执行状态
 SHELL_SCRIPT_EXECUTED = False  # 批次间的全流程脚本是否已执行
@@ -112,6 +114,7 @@ def run_full_process_script(shell_script):
             f"执行全流程启动或停止脚本失败，（返回码: {returncode}）\n错误输出: {stderr}"
         )
 
+@allure.epic("自动化测试用例执行")
 def test_run_case(case_path, init_test_session, batch):
     """pytest批量执行测试用例"""
     global SHELL_SCRIPT_EXECUTED
@@ -130,7 +133,7 @@ def test_run_case(case_path, init_test_session, batch):
         print(f"\n===== 开始执行全流程shell脚本：{shell_script} =====")
         try:
             run_full_process_script(shell_script)
-            time.sleep(20)  # 延迟20秒，确保全流程脚本执行完成
+            time.sleep(5)  # 延迟20秒，确保全流程脚本执行完成
         except Exception as e:
             print(f"执行全流程脚本异常：{str(e)}")
             pytest.fail("全流程脚本执行失败，终止后续用例")
@@ -142,16 +145,53 @@ def test_run_case(case_path, init_test_session, batch):
         test_case = case_manager.load_test_case(case_path_obj)
         test_case["_source_path"] = str(case_path_obj)
 
-        agent = TestExecuteAgent()
-        final_state = agent.run(test_case)
+        
+        case_name = test_case.get("case_name", "未命名用例")
+        case_type = "全流程测试" if batch == 2 else "单元测试"
+        case_module = test_case.get("module", "未知特性模块")
 
-        # 断言用例结果
-        error_details = "\n".join(final_state['errors']) if final_state['errors'] else "无错误"
-        overall_result = final_state['case_result'].get("overall_result", "未知")
+        allure.dynamic.suite(f"{case_module}模块")
+        allure.dynamic.feature(f"{case_type}")
+        allure.dynamic.story(f"{case_module}模块")
+        allure.dynamic.title(f"执行测试用例：{case_name}")
+        allure.dynamic.description(f"用例文件路径：{case_path}")
+        #allure.attach.file(case_path, name="用例配置文件", attachment_type=AttachmentType.JSON)
+        
+        with allure.step("加载测试用例"):
+            allure.attach(
+                f"用例名称：{case_name}\n",
+                f"用例路径：{case_path}",
+                "用例基本信息",
+                allure.attachment_type.TEXT
+            )
+
+        with allure.step("执行测试代理"):
+            agent = TestExecuteAgent()
+            final_state = agent.run(test_case)
+
+        with allure.step("验证测试结果"):
+            # 断言用例结果
+            error_details = "\n".join(final_state['errors']) if final_state['errors'] else "无错误"
+            overall_result = final_state['case_result'].get("overall_result", "未知")
+
+            result_info = {
+                "用例名称": {case_name},
+                "执行结果": overall_result,
+                "错误数量": len(final_state['errors']),
+                "错误信息": error_details
+            }
+
+            allure.attach(
+                str(result_info),
+                "测试执行结果",
+                allure.attachment_type.JSON
+            )
+
         #print(f"用例 {test_case.get('case_id')} 执行结果：{overall_result}")
         assert overall_result == "通过", f"用例 {test_case['case_id']} 执行失败（结果：{overall_result}）\n错误详情:\n{error_details}"
     except Exception as e:
         #print(f"用例执行异常：{str(e)}\n{traceback.format_exc()}")
+        exception_info = f"{str(e)}\n{traceback.format_exc()}"
         pytest.fail(f"用例执行过程中发生异常: {str(e)}\n{traceback.format_exc()}")
 
 
@@ -196,6 +236,14 @@ if __name__ == "__main__":
         type=str,
         default=None
     )
+    # 新增 Allure 报告路径配置（默认：allure-results）
+    parser.add_argument(
+        "-a", "--alluredir",
+        help="指定 Allure 结果文件路径（默认：allure_results）",
+        type=str,
+        default="reports/allure_results"
+    )
+
     args = parser.parse_args()
 
     filtered_cases = []
@@ -223,6 +271,9 @@ if __name__ == "__main__":
     #os.environ["STOP_SCRIPT_PATH"] = full_process_stop
 
     pytest_args = ["-v",  __file__]  # "--capture=tee-sys", ： 捕获 stdout/stderr 输出（用于报告生成）
+    # 生成 Allure 原始结果（用于后续渲染报告）
+    pytest_args.extend([f"--alluredir={args.alluredir}"])
+
     if args.report:
         pytest_args.extend([f"--html={args.report}", "--self-contained-html"])
             
@@ -249,3 +300,7 @@ if __name__ == "__main__":
             run_full_process_script(stop_script_path)
         else:
             print(f"警告：stop全流程的脚本不存在 - {stop_script_path}")
+    
+    # 本地直接渲染 Allure 报告（执行后自动打开浏览器）。可在调试时按需打开，后续批量执行或集成到jenkins流水线后需要注释
+    #if os.path.exists(args.alluredir):
+    #    os.system(f"allure serve {args.alluredir}")
