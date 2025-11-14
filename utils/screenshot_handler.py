@@ -550,7 +550,7 @@ class ScreenshotHandler:
             terminal_name_logfile = f"view_logfile"
             for keyword in expected_keywords:
                 # 4. 拉起xterm终端，用于cat该步骤待检查的日志文件后grep预期输出结果，然后截图
-                core_cmd = f"cat {log_file} | grep -F -- '{keyword}'"
+                core_cmd = f"cat {log_file} | grep -C 3 -F -- '{keyword}'"
                 if remote_ip == "127.0.0.1":
                     terminal_commands = (# ./main nok，没起来； ./unit_test ok, 所有命令都重定向到日志文件
                         'export TERM=xterm-256color; '  # 关键：强制终端类型为xterm，解析功能键
