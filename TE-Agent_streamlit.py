@@ -6,6 +6,7 @@ from datetime import datetime
 from uuid import uuid4
 import re
 import yaml
+from ct_agent_ui import render_ct_agent_ui
 
 # ---------------- 页面设置 ----------------
 st.set_page_config(page_title="测试用例自动化执行", layout="wide")
@@ -41,6 +42,13 @@ if "test_state" not in st.session_state:
 
 # 配置文件路径
 CONFIG_PATH = Path("config/config.yaml")
+
+# 初始化 ct_sessions 和 selected_ct_id
+if "ct_sessions" not in st.session_state:
+    st.session_state.ct_sessions = []
+
+if "selected_ct_id" not in st.session_state:
+    st.session_state.selected_ct_id = None
 
 # ---------------- 辅助函数 ----------------
 def get_test_session(tid):
@@ -154,8 +162,8 @@ with st.sidebar:
     st.header("功能导航")
     nav_option = st.radio(
         "选择功能",
-        ["test_session", "config_management"],
-        format_func=lambda x: "测试会话管理" if x == "test_session" else "配置文件管理",
+        ["test_session", "config_management", "CT-Agent"],
+        format_func=lambda x: "测试会话管理" if x == "test_session" else "配置文件管理" if x == "config_management" else "单元测试用例生成",
         key="nav_radio"
     )
     st.session_state.test_state["active_tab"] = nav_option
@@ -214,7 +222,7 @@ with st.sidebar:
             # 确保激活测试会话标签
             st.session_state.test_state["active_tab"] = "test_session"
 
-    else:  # config_management
+    elif nav_option == "config_management":  # config_management
         st.header("配置文件管理")
         st.info("在此处可以查看、修改、刷新工具配置参数")
         st.caption("配置文件路径: config/config.yaml")
@@ -231,6 +239,45 @@ with st.sidebar:
             if st.button("🔄 刷新配置", use_container_width=True):
                 st.session_state.test_state["config_content"] = load_config_file()
                 st.success("已加载刷新为当前config/config.yaml配置文件的最新内容")
+    # ---------- CT-Agent ----------
+    elif nav_option == "CT-Agent":
+        st.header("CT-Agent 会话管理")
+
+        # 如果已有历史会话
+        if st.session_state.ct_sessions:
+            ids = [s["id"] for s in st.session_state.ct_sessions]
+            default_idx = ids.index(st.session_state.selected_ct_id) if st.session_state.selected_ct_id in ids else 0
+            chosen_id = st.radio(
+                "选择 CT-Agent 会话",
+                options=ids,
+                index=default_idx,
+                format_func=lambda tid: next(s for s in st.session_state.ct_sessions if s["id"] == tid)["title"],
+                key="ct_session_radio"
+            )
+            st.session_state.selected_ct_id = chosen_id
+
+            session = next(s for s in st.session_state.ct_sessions if s["id"] == chosen_id)
+            st.caption(f"开始时间: {session['start_time']}")
+            st.caption(f"状态: {session['status']}")
+        else:
+            st.info("暂无 CT-Agent 执行记录")
+
+        st.divider()
+        # 新建 CT-Agent 会话
+        if st.button("创建新的 CT-Agent 会话", use_container_width=True):
+            session = {
+                "id": str(uuid4()),
+                "title": f"CT 会话 {datetime.now().strftime('%m-%d %H:%M')}",
+                "start_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "end_time": None,
+                "status": "未开始",
+                "logs": "",
+                "code": "",
+                "cmake": ""
+            }
+            st.session_state.ct_sessions.insert(0, session)
+            st.session_state.selected_ct_id = session["id"]
+            st.session_state.test_state["active_tab"] = "CT-Agent"
 
 # ---------------- 主区域 ----------------
 current_session = get_test_session(st.session_state.selected_test_id)
@@ -291,7 +338,7 @@ if active_tab == "config_management":
         st.info("已加载刷新为当前config/config.yaml配置文件的最新内容", icon="ℹ️")
 
 # 测试会话管理界面
-else:
+elif active_tab == "test_session":
     # 工具介绍
     st.subheader("工具介绍")
     st.markdown("""
@@ -457,8 +504,11 @@ else:
                         use_container_width=True
                     )
 
-        # 显示日志（如果有）
+        # 显示日志
         if current_session["logs"]:
             st.divider()
             st.subheader("📋 执行日志")
             st.text_area("", current_session["logs"], height=300)
+
+elif active_tab == "CT-Agent":
+    render_ct_agent_ui(st, st.session_state)
