@@ -6,6 +6,8 @@ from datetime import datetime
 from uuid import uuid4
 import re
 import yaml
+import json
+from typing import Optional, List, Tuple
 
 # ---------------- 页面设置 ----------------
 st.set_page_config(page_title="测试用例自动化执行", layout="wide")
@@ -24,7 +26,13 @@ def default_test_state():
         "selected_module": "test_cases/unit_test/module_1",
         "report_path": "reports/test_report.html",  # HTML报告路径
         "word_report_path": "reports/test_report.docx",  # Word报告路径
-        "config_content": ""
+        "config_content": "",
+        # 测试用例管理相关状态
+        "selected_json_case": None,  # 当前选中的JSON用例路径
+        "new_case_name": "",  # 新增用例名称
+        "new_case_content": "{}",  # 新增用例内容
+        "edit_case_content": "",  # 编辑用例内容
+        "show_delete_confirm": False  # 控制删除确认弹窗显示
     }
 
 # 会话列表：存储测试执行历史
@@ -39,8 +47,64 @@ if "selected_test_id" not in st.session_state:
 if "test_state" not in st.session_state:
     st.session_state.test_state = default_test_state()
 
-# 配置文件路径
+# ---------------- 常量定义 ----------------
 CONFIG_PATH = Path("config/config.yaml")
+TEST_CASE_ROOT = Path("test_cases")
+# 用例模板（提取重复JSON结构）
+CASE_TEMPLATES = {
+    "single": lambda cid: {
+        "case_id": cid,
+        "case_name": "基础测试用例示例模板",
+        "module": "场景",
+        "pre_commands": ["cd /home/lijiao/work/TE-Agent/sample && ls -lrt"],
+        "execution_steps": [{
+            "exec_path": "/home/lijiao/work/TE-Agent",
+            "command": "",
+            "blocked_process": 1,
+            "sleep_time": 3,
+            "timeout": 30,
+            "expected_output": [
+                "start full process with input parameter: fullprocess, number: 2",
+                "start full process with input parameter: fullprocess, number: "
+            ],
+            "expected_type": "logfile",
+            "expected_log": "/home/lijiao/work/TE-Agent/sample/full_process_fullprocess.log"
+        }],
+        "post_commands": ["清理测试环境的指令"]
+    },
+    "multi": lambda cid: {
+        "case_id": cid,
+        "case_name": "多步骤测试用例示例模板",
+        "module": "场景",
+        "pre_commands": ["cd /home/lijiao/work/TE-Agent/sample && ls -lrt"],
+        "execution_steps": [{
+            "exec_path": "/home/lijiao/work/TE-Agent",
+            "command": "",
+            "blocked_process": 1,
+            "sleep_time": 3,
+            "timeout": 30,
+            "expected_output": [
+                "start full process with input parameter: fullprocess, number: 2",
+                "start full process with input parameter: fullprocess, number: "
+            ],
+            "expected_type": "logfile",
+            "expected_log": "/home/lijiao/work/TE-Agent/sample/full_process_fullprocess.log"
+        }, {
+            "exec_path": "/home/lijiao/work/GD-Agent/examples/StartedNode/build",
+            "command": "",
+            "blocked_process": 1,
+            "sleep_time": 3,
+            "timeout": 30,
+            "expected_output": [
+                "start test with input parameter: test, number: 2",
+                "start test with input parameter: test, number: "
+            ],
+            "expected_type": "logfile",
+            "expected_log": "/home/lijiao/work/TE-Agent/sample/full_process_test.log"
+        }],
+        "post_commands": ["清理测试环境的指令"]
+    }
+}
 
 # ---------------- 辅助函数 ----------------
 def get_test_session(tid):
@@ -141,6 +205,59 @@ def save_config_file(content):
     except Exception as e:
         return False, f"配置保存失败: {str(e)}"
 
+# ---------------- 用例管理专用辅助函数 ----------------
+def get_all_json_cases(root_dir: Path) -> List[Path]:
+    """递归获取所有JSON测试用例文件"""
+    return list(root_dir.rglob("*.json")) if root_dir.exists() else []
+
+def format_case_path(case_path: Path) -> str:
+    """格式化用例路径（相对于测试用例根目录）"""
+    return str(case_path.relative_to(TEST_CASE_ROOT))
+
+def load_json_case(case_path: Path) -> Optional[str]:
+    """加载JSON用例文件内容（格式化显示）"""
+    try:
+        with open(case_path, "r", encoding="utf-8") as f:
+            return json.dumps(json.load(f), ensure_ascii=False, indent=2)
+    except Exception as e:
+        st.error(f"加载用例失败: {str(e)}")
+        return None
+
+def save_json_case(case_path: Path, content: str) -> Tuple[bool, str]:
+    """保存JSON用例文件（验证JSON格式）"""
+    try:
+        json.loads(content)
+        case_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(case_path, "w", encoding="utf-8") as f:
+            f.write(content)
+        return True, "用例保存成功！"
+    except json.JSONDecodeError as e:
+        return False, f"JSON格式错误: {str(e)}"
+    except Exception as e:
+        return False, f"保存用例失败: {str(e)}"
+
+def delete_json_case(case_path: Path) -> Tuple[bool, str]:
+    """删除JSON用例文件"""
+    try:
+        if case_path.exists():
+            case_path.unlink()
+            return True, "用例删除成功！"
+        return False, "用例文件不存在"
+    except Exception as e:
+        return False, f"删除用例失败: {str(e)}"
+
+def load_latest_case_content(case_path: Path) -> str:
+    """加载用例最新内容（处理异常）"""
+    try:
+        with open(case_path, "r", encoding="utf-8") as f:
+            return json.dumps(json.load(f), ensure_ascii=False, indent=2)
+    except json.JSONDecodeError as e:
+        st.error(f"用例文件JSON格式错误：{str(e)}", icon="❌")
+        return f"{{\n  // JSON格式错误：{str(e)}\n}}"
+    except Exception as e:
+        st.error(f"加载用例失败：{str(e)}", icon="❌")
+        return f"{{\n  // 加载失败：{str(e)}\n}}"
+
 # 测试类型映射字典
 test_type_map = {
     'single_case': '执行单个用例',
@@ -150,12 +267,16 @@ test_type_map = {
 
 # ---------------- 侧边栏 ----------------
 with st.sidebar:
-    # 导航菜单
+    # 导航菜单 - 新增「测试用例管理」选项
     st.header("功能导航")
     nav_option = st.radio(
         "选择功能",
-        ["test_session", "config_management"],
-        format_func=lambda x: "测试会话管理" if x == "test_session" else "配置文件管理",
+        ["test_session", "config_management", "case_management"],
+        format_func=lambda x: {
+            "test_session": "测试会话管理",
+            "config_management": "配置文件管理",
+            "case_management": "测试用例管理"
+        }[x],
         key="nav_radio"
     )
     st.session_state.test_state["active_tab"] = nav_option
@@ -214,7 +335,7 @@ with st.sidebar:
             # 确保激活测试会话标签
             st.session_state.test_state["active_tab"] = "test_session"
 
-    else:  # config_management
+    elif nav_option == "config_management":
         st.header("配置文件管理")
         st.info("在此处可以查看、修改、刷新工具配置参数")
         st.caption("配置文件路径: config/config.yaml")
@@ -231,6 +352,74 @@ with st.sidebar:
             if st.button("🔄 刷新配置", use_container_width=True):
                 st.session_state.test_state["config_content"] = load_config_file()
                 st.success("已加载刷新为当前config/config.yaml配置文件的最新内容")
+    
+    # ---------------- 测试用例管理侧边栏（用st.empty()模拟删除确认弹窗） ----------------
+    elif nav_option == "case_management":
+        st.header("测试用例管理")
+        st.info("浏览、选择、删除test_cases目录下的JSON用例文件")
+        st.caption(f"用例根目录: {TEST_CASE_ROOT}")
+        
+        all_cases = get_all_json_cases(TEST_CASE_ROOT)
+        if all_cases:
+            # 格式化用例路径 + 选中逻辑
+            case_options = [format_case_path(case) for case in all_cases]
+            default_idx = case_options.index(st.session_state.test_state["selected_json_case"]) if st.session_state.test_state["selected_json_case"] in case_options else 0
+            
+            # 用例选择
+            selected_case_rel = st.radio(
+                "选择用例文件",
+                options=case_options,
+                index=default_idx,
+                key="case_selector"
+            )
+            selected_case_abs = TEST_CASE_ROOT / selected_case_rel
+            st.session_state.test_state["selected_json_case"] = selected_case_rel
+            
+            # 用例信息
+            st.divider()
+            st.caption(f"当前选中: {selected_case_rel}")
+            st.caption(f"文件大小: {selected_case_abs.stat().st_size} 字节")
+            st.caption(f"修改时间: {datetime.fromtimestamp(selected_case_abs.stat().st_mtime).strftime('%Y-%m-%d %H:%M:%S')}")
+            
+            # 删除确认弹窗
+            delete_dialog = st.empty()
+            if st.button("🗑️ 删除选中用例", use_container_width=True, type="secondary"):
+                st.session_state.test_state["show_delete_confirm"] = True
+            
+            if st.session_state.test_state["show_delete_confirm"]:
+                with delete_dialog.container():
+                    st.markdown("""
+                    <div style="background-color: #f8f9fa; border: 1px solid #ffcccc; border-radius: 8px; padding: 16px; margin: 8px 0;">
+                        <h4 style="color: #dc3545; margin: 0 0 12px 0;">⚠️ 确认删除</h4>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    st.warning(f"您确定要删除以下用例吗？\n\n**{selected_case_rel}**\n\n删除后无法恢复！", icon="⚠️")
+                    
+                    col_confirm, col_cancel = st.columns(2)
+                    with col_confirm:
+                        if st.button("✅ 确认删除", type="primary", use_container_width=True):
+                            success, msg = delete_json_case(selected_case_abs)
+                            st.success(msg, icon="✅") if success else st.error(msg, icon="❌")
+                            st.session_state.test_state["selected_json_case"] = None
+                            st.session_state.test_state["edit_case_content"] = ""
+                            st.session_state.test_state["show_delete_confirm"] = False
+                            st.rerun()
+                    with col_cancel:
+                        if st.button("❌ 取消", use_container_width=True):
+                            st.session_state.test_state["show_delete_confirm"] = False
+                            delete_dialog.empty()
+        else:
+            st.warning("test_cases目录下暂无JSON用例文件", icon="⚠️")
+            # 快速创建默认用例
+            if st.button("➕ 创建默认用例", use_container_width=True):
+                default_case_path = TEST_CASE_ROOT / "unit_test" / "default_test_001.json"
+                default_content = json.dumps(
+                    CASE_TEMPLATES["single"](f"TEST_{datetime.now().strftime('%Y%m%d%H%M%S')}"),
+                    ensure_ascii=False, indent=2
+                )
+                success, msg = save_json_case(default_case_path, default_content)
+                st.success(msg, icon="✅") if success else st.error(msg, icon="❌")
+                st.rerun()
 
 # ---------------- 主区域 ----------------
 current_session = get_test_session(st.session_state.selected_test_id)
@@ -291,7 +480,7 @@ if active_tab == "config_management":
         st.info("已加载刷新为当前config/config.yaml配置文件的最新内容", icon="ℹ️")
 
 # 测试会话管理界面
-else:
+elif active_tab == "test_session":
     # 工具介绍
     st.subheader("工具介绍")
     st.markdown("""
@@ -462,3 +651,118 @@ else:
             st.divider()
             st.subheader("📋 执行日志")
             st.text_area("", current_session["logs"], height=300)
+
+# ---------------- 测试用例管理主界面 ----------------
+elif active_tab == "case_management":
+    st.subheader("📁 测试用例管理")
+    st.markdown("""
+    在此功能模块中，您可以：
+    - **浏览**：查看test_cases目录下所有JSON格式的测试用例
+    - **新增**：创建新的测试用例文件（支持自定义路径和内容）
+    - **编辑**：修改已选中的测试用例内容（支持自动验证JSON格式）
+    - **删除**：删除不需要的测试用例文件（删除前需确认）
+    """)
+    st.divider()
+
+    tab1, tab2 = st.tabs(["➕ 新增用例", "✏️ 编辑用例"])
+
+    # 新增用例标签页
+    with tab1:
+        st.markdown("### 创建新测试用例")
+        
+        # 1. 用例路径配置
+        st.markdown("#### 1. 用例路径配置")
+        new_case_name = st.text_input(
+            "请输入用例相对路径（含文件名），请不要与现有用例路径冲突",
+            placeholder="如：unit_test/module_1/new_test_001.json",
+            value=st.session_state.test_state.get("new_case_name", ""),
+            help="相对于test_cases目录的路径，自动创建不存在的目录"
+        )
+        st.session_state.test_state["new_case_name"] = new_case_name
+        
+        # 2. 模板选择
+        st.markdown("#### 2. 模板选择（可选）")
+        col1, col2 = st.columns([1, 3], vertical_alignment="bottom") 
+        with col1:
+            template_option = st.selectbox(
+                "选择模板类型",
+                options=["空模板", "单步骤基础测试模板", "多步骤测试模板"],
+                index=0,
+                key="template_selector",
+                help="选择预设模板快速创建用例，选择后点击下方「加载模板」按钮，并在编辑框内基于模板修改用例内容"
+            )
+        with col2:
+            load_template_btn = st.button("📋 加载选中模板", use_container_width=False, key="load_template_btn")
+        
+        # 通过模板字典加载模板
+        if load_template_btn:
+            if template_option == "单步骤基础测试模板":
+                case_id = f"TEST_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+                template_content = json.dumps(CASE_TEMPLATES["single"](case_id), ensure_ascii=False, indent=2)
+            elif template_option == "多步骤测试模板":
+                case_id = f"MULTI_STEP_TEST_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+                template_content = json.dumps(CASE_TEMPLATES["multi"](case_id), ensure_ascii=False, indent=2)
+            else:
+                template_content = "{}"
+            st.session_state.test_state["new_case_content"] = template_content
+            st.rerun()
+        
+        # 3. 用例内容编辑区
+        st.markdown("### 用例内容（JSON格式）")
+        new_case_content = st.text_area(
+            label="用例编辑区",
+            value=st.session_state.test_state.get("new_case_content", "{}"),
+            height=300,
+            key=f"new_case_editor_{hash(st.session_state.test_state.get('new_case_content', ''))}",
+            help="请输入合法的JSON格式，保存时会自动验证"
+        )
+        st.session_state.test_state["new_case_content"] = new_case_content
+        
+        # 保存按钮
+        if st.button("💾 保存新用例", use_container_width=True, type="primary"):
+            if not new_case_name:
+                st.error("请输入用例相对路径和文件名", icon="❌")
+            elif not new_case_name.endswith(".json"):
+                st.error("用例文件必须以.json为后缀", icon="❌")
+            else:
+                success, msg = save_json_case(TEST_CASE_ROOT / new_case_name, new_case_content)
+                if success:
+                    st.success(msg, icon="✅")
+                    st.session_state.test_state["new_case_name"] = ""
+                    st.session_state.test_state["new_case_content"] = "{}"
+                    st.rerun()
+                else:
+                    st.error(msg, icon="❌")
+
+    # 编辑用例标签页
+    with tab2:
+        st.markdown("#### 编辑已选中测试用例")
+        selected_case_rel = st.session_state.test_state["selected_json_case"]
+        selected_case_abs = TEST_CASE_ROOT / selected_case_rel if selected_case_rel else None
+        
+        # 未选中用例/用例不存在
+        if not selected_case_rel or (selected_case_abs and not selected_case_abs.exists()):
+            st.warning("请在左侧边栏选择一个有效的用例文件", icon="⚠️")
+            st.text_area(
+                "", value="", height=300, key="edit_case_editor_empty",
+                help="请先在左侧边栏选择一个用例文件", disabled=True
+            )
+        else:
+            st.markdown(f"##### 用例路径（相对路径）：`{selected_case_abs}`") # 已选中有效用例
+            
+            # 加载最新内容
+            latest_content = load_latest_case_content(selected_case_abs)
+            edit_case_content = st.text_area(
+                "", value=latest_content, height=300,
+                key=f"edit_case_editor_{selected_case_rel}",
+                help="请输入合法的JSON格式，保存时会自动验证"
+            )
+            st.session_state.test_state["edit_case_content"] = edit_case_content
+            
+            # 保存修改
+            if st.button("💾 保存修改", use_container_width=False, type="primary"):
+                success, msg = save_json_case(selected_case_abs, edit_case_content)
+                if success:
+                    st.success(msg, icon="✅")
+                else:
+                    st.error(msg, icon="❌")

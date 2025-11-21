@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Tuple, List
 import math
 from utils.command_executor import CommandExecutor
+import re
 import pdb
 
 class ScreenshotHandler:
@@ -426,6 +427,29 @@ class ScreenshotHandler:
             return False
             
     @staticmethod
+    def delete_control_and_ansi(file_path, output_path):
+        # 读取文件（保留原始换行符，用 'r' 模式，避免自动转换）
+        with open(file_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        
+        # 1. 匹配并删除 ANSI 转义序列
+        ansi_pattern = r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])'
+        content = re.sub(ansi_pattern, '', content)
+        
+        # 2. 删除 ASCII 控制符（保留 \n（0x0A）和 \t（0x09））。匹配范围：ASCII 0-8（\x00-\x08）、10-31（\x0A 是 \n，排除后从 \x0B 开始）、127（DEL 符）
+        control_pattern = r'[\x00-\x08\x0B-\x1F\x7F]'
+        content = re.sub(control_pattern, '', content)
+
+        content = re.sub(r'\x07', '', content)  # 明确删除响铃符 ^G（0x07）
+        
+        # 写入新文件（用 'w' 模式，保留 \n 作为换行符）
+        with open(output_path, "w", encoding="utf-8", newline="\n") as f:
+            f.write(content)
+        
+        #print(f"处理完成！输出文件：{output_path}")
+        #print("✅ 已保留换行符 \\n 和制表符 \\t，特殊字符已删除")
+
+    @staticmethod
     def capture_step_screenshot_terminal(screenshot_name: str, 
         terminal_name:str, 
         terminal_line_num:int,
@@ -463,6 +487,10 @@ class ScreenshotHandler:
             else:
                 print("expected_keywords为空时截图失败")
         else:
+            # 截图前，备份终端日志，后清理日志文件中的ANSI转义序列和控制字符。非阻塞式进程在截图期间还在输出日志的话会截到最底部的一些光标移动的特殊字符，即乱码
+            os.system(f"cp {log_file} {log_file}.origin")
+            ScreenshotHandler.delete_control_and_ansi(log_file+".origin",log_file)  
+            
             # 8. 定位目标文本所在行
             for keyword in expected_keywords:
                 target_reverse_line, target_line, target_content = ScreenshotHandler.find_target_line_in_output(log_file, keyword)
