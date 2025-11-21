@@ -271,8 +271,9 @@ if __name__ == "__main__":
     #os.environ["STOP_SCRIPT_PATH"] = full_process_stop
 
     pytest_args = ["-v",  __file__]  # "--capture=tee-sys", ： 捕获 stdout/stderr 输出（用于报告生成）
-    # 生成 Allure 原始结果（用于后续渲染报告）
-    pytest_args.extend([f"--alluredir={args.alluredir}"])
+
+    # 生成 Allure 原始结果（用于后续渲染报告）和重跑参数
+    pytest_args.extend([f"--alluredir={args.alluredir}", "--reruns=1", "--reruns-delay=2"])
 
     if args.report:
         pytest_args.extend([f"--html={args.report}", "--self-contained-html"])
