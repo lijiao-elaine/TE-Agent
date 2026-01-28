@@ -447,7 +447,7 @@ class ScreenshotHandler:
             f.write(content)
         
         #print(f"处理完成！输出文件：{output_path}")
-        #print("✅ 已保留换行符 \\n 和制表符 \\t，特殊字符已删除")
+        #print("已保留换行符 \\n 和制表符 \\t，特殊字符已删除")
 
     @staticmethod
     def capture_step_screenshot_terminal(screenshot_name: str, 
@@ -470,7 +470,7 @@ class ScreenshotHandler:
         # 7. 获取目标终端窗口ID
         window_ids = ScreenshotHandler.get_xterm_window_id(terminal_name)
         if not window_ids:
-            print("未找到目标终端窗口")
+            print(f"未找到测试步骤执行的终端窗口：{terminal_name}")
             return
         # 取第一个匹配的窗口
         window_id = window_ids.split()[0]
@@ -480,9 +480,9 @@ class ScreenshotHandler:
         if not expected_keywords or all_empty:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             screenshot_path = os.path.abspath(os.path.join(screenshot_dir, f"{screenshot_name}_{timestamp}.png"))
-            # 10. 截图并保存
+            # 10. expected_keywords为空时，也截图并保存
             if ScreenshotHandler.capture_terminal_region(window_id, screenshot_path):
-                #print(f"截图成功，保存路径：{screenshot_path}")
+                #print(f"expected_keywords为空时截图成功，保存路径：{screenshot_path}")
                 screenshot_paths.append(screenshot_path)
             else:
                 print("expected_keywords为空时截图失败")
@@ -491,53 +491,59 @@ class ScreenshotHandler:
             os.system(f"cp {log_file} {log_file}.origin")
             ScreenshotHandler.delete_control_and_ansi(log_file+".origin",log_file)  
             
-            # 8. 定位目标文本所在行
             for keyword in expected_keywords:
+                
+                # 8. 定位目标文本所在行
                 target_reverse_line, target_line, target_content = ScreenshotHandler.find_target_line_in_output(log_file, keyword)
                 if not target_line:
                     #print(f"未在终端输出中找到目标文本：'{keyword}'")
                     continue
-                #print(f"目标文本 '{keyword}' 位置：倒数第 {target_reverse_line} 行")
-            
-                # 9. 聚焦窗口并滚动到目标行 force_window_above_and_focus ensure_window_focus
-                #print("开始执行窗口聚焦操作") 
-                if not ScreenshotHandler.force_window_above_and_focus(window_id):
-                    print("窗口聚焦失败，无法滚动")
-                else:
-                    #print("开始执行滚动操作...")
-                    scroll_success = ScreenshotHandler.scroll_terminal_to_line(target_reverse_line, terminal_line_num) #从最底下往上滚动到最后一次出现目标文本
-                    if not scroll_success:
-                        #print("滚动操作完成，目标行已显示在终端中")
-                        #else:
-                        print("滚动操作失败，将截图当前视图")
+
+                # 20260128. 将对terminal回滚截图，改成：拉起xterm终端，用于cat终端输出的日志文件grep预期输出结果，然后截图
+                terminal_name_logfile = f"view_logfile"
+                core_cmd = f"cat {log_file} | grep -C 10 -F -- '{keyword}'"
+                terminal_commands = (
+                    'export TERM=xterm-256color; '  # 强制终端类型为xterm，解析功能键
+                    'stty cooked; '  # 强制熟模式
+                    'short_pwd=$(echo "$PWD" | sed "s|^$HOME|~|"); '
+                    'echo -n "$USER@$HOSTNAME:$short_pwd$ "; '  # 打印命令提示符（不换行）
+                    f'echo "{core_cmd}"; '  # 打印命令
+                    f"{core_cmd}; "  # 执行命令
+                    'bash --rcfile ~/.bashrc_no_title --noprofile'
+                )
+                command = ["xterm", "-T", terminal_name_logfile, "-geometry", f"120x40", "-e", f"bash", "-c", terminal_commands]
+                proc = subprocess.Popen(
+                    command,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    shell=False
+                    )
+                time.sleep(3)
 
                 timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
                 screenshot_path = os.path.abspath(os.path.join(screenshot_dir, f"{screenshot_name}_{timestamp}.png"))
+                logfile_window_ids = ScreenshotHandler.get_xterm_window_id(terminal_name_logfile)
+                if not logfile_window_ids:
+                    print(f"未找到查看被测系统日志的、名为{terminal_name_logfile}的终端窗口")
+                    #continue
+                    return (False, screenshot_paths)
+                logfile_window_id = logfile_window_ids.split()[0] # 取第一个匹配的窗口
                 
-                # 10. 截图并保存
-                if ScreenshotHandler.capture_terminal_region(window_id, screenshot_path):
+                # 10. 截图并保存，直接对终端截图时截window_id，更新为cat终端日志方案后截logfile_window_id
+                if ScreenshotHandler.capture_terminal_region(logfile_window_id, screenshot_path):
                     #print(f"截图成功，保存路径：{screenshot_path}")
                     screenshot_paths.append(screenshot_path)
                 else:
-                    print("expected_keywords非空时截图失败")
+                    print("expected_keywords非空时，对终端或终端输出的日志文件截图失败")
 
-                #滚动到终端末尾
-                subprocess.run(
-                    f'xdotool key Shift+End',
-                    shell=True,
-                    check=True
-                )
-                subprocess.run(
-                    f'xdotool key BackSpace',
-                    shell=True,
-                    check=True
-                )
-                
+                # 关闭cat终端输出日志并grep关键词的xterm终端
+                if not ScreenshotHandler.kill_xterm_by_window_id(logfile_window_id):
+                    print(f"关闭cat终端输出日志文件的终端：{terminal_name_logfile}（窗口ID：{logfile_window_id}）失败")
 
-        # 11. 关闭xterm终端
+        # 11. 关闭执行测试步骤的xterm终端
         if not ScreenshotHandler.kill_xterm_by_window_id(window_id):
             print(f"关闭终端：{terminal_name}（窗口ID：{window_id}）失败")
-                
 
         return screenshot_paths
 
@@ -580,8 +586,8 @@ class ScreenshotHandler:
                 # 4. 拉起xterm终端，用于cat该步骤待检查的日志文件后grep预期输出结果，然后截图
                 core_cmd = f"cat {log_file} | grep -C 3 -F -- '{keyword}'"
                 if remote_ip == "127.0.0.1":
-                    terminal_commands = (# ./main nok，没起来； ./unit_test ok, 所有命令都重定向到日志文件
-                        'export TERM=xterm-256color; '  # 关键：强制终端类型为xterm，解析功能键
+                    terminal_commands = (
+                        'export TERM=xterm-256color; '  # 强制终端类型为xterm，解析功能键
                         'stty cooked; '  # 强制熟模式
                         'short_pwd=$(echo "$PWD" | sed "s|^$HOME|~|"); '
                         'echo -n "$USER@$HOSTNAME:$short_pwd$ "; '  # 打印命令提示符（不换行）

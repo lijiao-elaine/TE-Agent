@@ -13,7 +13,7 @@
       "sleep_time":3,
       "timeout": 1,
       "expected_output": [
-        "start main with input parameter: pytest"
+        "epoll creat success"
       ],
       "expected_type": "terminal",
       "expected_log":""
