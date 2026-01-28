@@ -1,0 +1,32 @@
+# CT-Agent启动文件路径
+main-path: "/home/ysd/CT-Agent/src/main.py"
+# CT-Agent配置文件路径
+config: "/home/ysd/CT-Agent/config/config.yaml"
+# 模型配置
+model-type: ""  # 可选值：openai, ollama, llama, huggingface
+model-name: ""  # 模型名称
+api-url: ""  # API 地址
+# 日志级别
+debug-level: "INFO"  # 可选值：DEBUG, INFO, WARNING, ERROR, CRITICAL
+# 输出目录
+output-dir: "/home/ysd/doc/work/CT-Agent/results/poco/debug"
+# 生成的测试需求（例如，单元测试的需求描述）
+requirement: ""
+# 启用 token 计数（设置为 True 启用，False 禁用）
+token-count: False
+
+# 后端模式（设置为 True 启用，False 禁用）
+backend: False
+
+command_template: |
+  {main-path} \
+  --config {config} \
+  --model-type {model-type} \
+  --model-name {model-name} \
+  --api-url {api-url} \
+  --debug-level {debug-level} \
+  --output-dir {output-dir} \
+  --requirement {requirement} \
+  --token-count {token-count} \
+  --max-iterations {max-iterations} \
+  --backend {backend}

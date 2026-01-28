@@ -226,7 +226,7 @@ def run_fill_result(state: TestState) -> Dict:
         remote_passwd = config_manager.get_remote_passwd()
         remote_hdc_port = config_manager.get_hdc_port()
         
-        state.add_log(f"已执行完的测试步骤数量为：{step_num}, 待执行的总步骤数量为：{total_steps}")
+        state.add_log(f"已执行完的测试步骤数量为：{step_num}, 应执行的总步骤数量为：{total_steps}")
 
         if step_num > 0:
             for step_idx, step in reversed(list(enumerate(steps, start=0))): #start=0表示索引从0开始（默认0） steps=[A, B, C] 则[(2, C), (1, B), (0, A)]
