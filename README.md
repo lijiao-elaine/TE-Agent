@@ -245,6 +245,8 @@ TE_Agent/
 
 生成的测试报告包含以下部分：
 
+### title_file_output.docx
+
 ### test_report.docx
 
 - 测试用例步骤的测试结果

@@ -4,7 +4,7 @@ from pathlib import Path
 import subprocess
 import pytest
 import time
-from test_case_manager.test_case_manager import TestCaseManager
+from test_case_manager.test_case_manager import CaseManager
 from config.config_manager import ConfigManager  # 导入ConfigManager
 
 def clean_directory(dir_path: Path):
@@ -107,7 +107,7 @@ def init_test_session(request):
     """初始化测试会话"""
     try:
         config_manager = ConfigManager()
-        case_manager = TestCaseManager()
+        case_manager = CaseManager()
         remote_ip = config_manager.get_remote_ip()
         remote_os = config_manager.get_remote_os()
         env_DISPLAY = config_manager.get_env_DISPLAY()

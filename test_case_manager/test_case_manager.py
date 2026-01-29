@@ -8,8 +8,9 @@ from typing import List, Dict, Optional, Any
 from docx import Document
 from pathlib import Path
 import random
+import pickle
 
-class TestCaseManager:
+class CaseManager:
     """测试用例管理器，负责测试用例文件的加载、解析和验证"""
     
     def __init__(self, test_cases_dir: str = "test_cases/unit_test"):

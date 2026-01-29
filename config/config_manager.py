@@ -65,6 +65,14 @@ class ConfigManager:
         """获取填充结果后的Word文档路径"""
         return self.get("word_documents.result_output_file", "reports/test_report.docx")
 
+    def get_screenshots_word_file(self) -> str:
+        """获取填充结果后的Word文档路径"""
+        return self.get("word_documents.screenshots_file", "title_file.docx")
+
+    def get_screenshots_output_file(self) -> str:
+        """获取填充结果后的Word文档路径"""
+        return self.get("word_documents.screenshots_output_file", "reports/title_file_output.docx")
+
     def get_default_timeout(self) -> int:
         """获取默认步骤超时时间（秒）"""
         return self.get("execution.default_timeout", 60)
