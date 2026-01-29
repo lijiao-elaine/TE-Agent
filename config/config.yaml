@@ -29,6 +29,8 @@ reports:
 word_documents:
   original_template_file: "merged_document.docx"  # 原始测试用例文档
   result_output_file: "reports/test_report.docx"  # 填充结果后的文档
+  screenshots_file: "title_file.docx"
+  screenshots_output_file: "reports/title_file_output.docx"
 
 # 日志配置
 logging:

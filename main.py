@@ -3,19 +3,19 @@
 TE-Agent: 测试用例自动化执行智能体
 主程序入口
 """
-
+import allure
 import argparse
 import pytest
 import traceback
 from pathlib import Path
-from agent.test_execute_agent import TestExecuteAgent
-from test_case_manager.test_case_manager import TestCaseManager
+from agent.test_execute_agent import ExecuteAgent
+from test_case_manager.test_case_manager import CaseManager
 from config.config_manager import ConfigManager  # 导入配置管理器
 from utils.command_executor import CommandExecutor
 import os
 import subprocess
 import time
-import allure
+import pickle
 from allure_commons.types import AttachmentType
 
 # 全局变量：记录执行状态
@@ -31,14 +31,14 @@ def get_test_cases_by_module(module_path: str = None, case_type: str = "unit_tes
     remote_ip = config_manager.get_remote_ip()
     if case_type == "full_process_test":
         if remote_ip != "127.0.0.1" and remote_os == "HarmonyOS":
-            case_manager = TestCaseManager("test_cases_ohos/full_process_test")
+            case_manager = CaseManager("test_cases_ohos/full_process_test")
         else:
-            case_manager = TestCaseManager("test_cases/full_process_test")
+            case_manager = CaseManager("test_cases/full_process_test")
     else:
         if remote_ip != "127.0.0.1" and remote_os == "HarmonyOS":
-            case_manager = TestCaseManager("test_cases_ohos/unit_test")
+            case_manager = CaseManager("test_cases_ohos/unit_test")
         else:
-            case_manager = TestCaseManager("test_cases/unit_test")
+            case_manager = CaseManager("test_cases/unit_test")
     all_cases = case_manager.get_all_test_case_paths()
     
     if not module_path:
@@ -58,7 +58,7 @@ def get_test_cases_by_module(module_path: str = None, case_type: str = "unit_tes
     return filtered_cases
 
 def clear_full_process_logfile(filtered_cases):
-    case_manager = TestCaseManager()
+    case_manager = CaseManager()
     config_manager = ConfigManager()
     remote_os = config_manager.get_remote_os()
     remote_ip = config_manager.get_remote_ip()
@@ -92,7 +92,7 @@ def clear_full_process_logfile(filtered_cases):
                     )
 
 def run_full_process_script(shell_script):
-    case_manager = TestCaseManager()
+    case_manager = CaseManager()
     config_manager = ConfigManager()
     remote_os = config_manager.get_remote_os()
     remote_ip = config_manager.get_remote_ip()
@@ -114,8 +114,8 @@ def run_full_process_script(shell_script):
             f"执行全流程启动或停止脚本失败，（返回码: {returncode}）\n错误输出: {stderr}"
         )
 
-@allure.epic("自动化测试用例执行")
-def test_run_case(case_path, init_test_session, batch):
+
+def test_run_case(case_path, init_test_session, batch, global_test_case_info):
     """pytest批量执行测试用例"""
     global SHELL_SCRIPT_EXECUTED
     shell_script = os.getenv("SHELL_SCRIPT_PATH", "")
@@ -140,34 +140,52 @@ def test_run_case(case_path, init_test_session, batch):
         SHELL_SCRIPT_EXECUTED = True
 
     try:
-        case_path_obj = Path(case_path)
-        case_manager = TestCaseManager()
-        test_case = case_manager.load_test_case(case_path_obj)
-        test_case["_source_path"] = str(case_path_obj)
+        allure.dynamic.description(f"用例文件路径: {case_path}")
+        case_manager = CaseManager()
 
-        
-        case_name = test_case.get("case_name", "未命名用例")
-        case_type = "全流程测试" if batch == 2 else "单元测试"
-        case_module = test_case.get("module", "未知特性模块")
-
-        allure.dynamic.suite(f"{case_module}模块")
-        allure.dynamic.feature(f"{case_type}")
-        allure.dynamic.story(f"{case_module}模块")
-        allure.dynamic.title(f"执行测试用例：{case_name}")
-        allure.dynamic.description(f"用例文件路径：{case_path}")
-        #allure.attach.file(case_path, name="用例配置文件", attachment_type=AttachmentType.JSON)
-        
         with allure.step("加载测试用例"):
+            case_path_obj = Path(case_path)
+            test_case = case_manager.load_test_case(case_path_obj)
+            test_case["_source_path"] = str(case_path_obj)
+
+            epic = case_path_obj._str.split("TE-Agent/")[-1].split("/")[2]
+            test_module = case_path_obj._str.split("TE-Agent/")[-1].split("/")[3]
+            case_name = test_case["case_name"]
+            case_id = test_case["case_id"]
+            title = case_name
+            '''
+            if case_id in global_test_case_info:
+                test_case_idx = global_test_case_info[case_id]["test_case_idx"] if global_test_case_info[case_id]["test_case_idx"] else ""
+                test_case_name = global_test_case_info[case_id]["test_case_name"] if global_test_case_info[case_id]["test_case_name"] else ""
+
+                title = (test_case_idx + " " + test_case_name).strip() if (test_case_idx + " " + test_case_name).strip() else case_name
+
+                test_outline_idx = global_test_case_info[case_id]["test_outline_idx"] if global_test_case_info[case_id][
+                    "test_outline_idx"] else ""
+                test_outline_name = global_test_case_info[case_id]["test_outline_name"] if global_test_case_info[case_id][
+                    "test_outline_name"] else ""
+                test_module = (test_outline_idx + " " + test_outline_name).strip() if (
+                            test_outline_idx + " " + test_outline_name).strip() else test_module
+            '''
+
+            allure.dynamic.title(f"{title}")
+            allure.dynamic.feature(test_module)
+            allure.dynamic.epic(epic)
+
+
+
+            # 在报告中附 用例基本信息
             allure.attach(
-                f"用例名称：{case_name}\n",
-                f"用例路径：{case_path}",
+                f"用例名称: {case_name}\n"+
+                f"用例标识：{case_id}\n"+
+                f"文件路径: {case_path}",
                 "用例基本信息",
                 allure.attachment_type.TEXT
             )
-
-        with allure.step("执行测试代理"):
-            agent = TestExecuteAgent()
-            final_state = agent.run(test_case)
+        
+        # with allure.step("工作流执行测试用例"):
+        agent = ExecuteAgent()
+        final_state = agent.run(test_case)
 
         with allure.step("验证测试结果"):
             # 断言用例结果
@@ -177,8 +195,8 @@ def test_run_case(case_path, init_test_session, batch):
             result_info = {
                 "用例名称": {case_name},
                 "执行结果": overall_result,
-                "错误数量": len(final_state['errors']),
-                "错误信息": error_details
+                "错误数量": len(final_state.get('errors', [])),
+                "错误详情": error_details
             }
 
             allure.attach(
@@ -187,9 +205,21 @@ def test_run_case(case_path, init_test_session, batch):
                 allure.attachment_type.JSON
             )
 
+            if overall_result == "通过":
+                allure.dynamic.severity(allure.severity_level.NORMAL)
+            else:
+                allure.dynamic.severity(allure.severity_level.CRITICAL)
+            
         #print(f"用例 {test_case.get('case_id')} 执行结果：{overall_result}")
         assert overall_result == "通过", f"用例 {test_case['case_id']} 执行失败（结果：{overall_result}）\n错误详情:\n{error_details}"
     except Exception as e:
+        # 记录异常信息到 Allure
+        allure.attach(
+            traceback.format_exc(),
+            "异常堆栈信息",
+            allure.attachment_type.TEXT
+        )
+        allure.dynamic.severity(allure.severity_level.BLOCKER)
         #print(f"用例执行异常：{str(e)}\n{traceback.format_exc()}")
         exception_info = f"{str(e)}\n{traceback.format_exc()}"
         pytest.fail(f"用例执行过程中发生异常: {str(e)}\n{traceback.format_exc()}")
@@ -212,9 +242,15 @@ def pytest_generate_tests(metafunc):
             all_cases_with_batch.append(pytest.param(case, 1, marks=pytest.mark.batch1))
         for case in batch2_cases:
             all_cases_with_batch.append(pytest.param(case, 2, marks=pytest.mark.batch2))
-        
-        metafunc.parametrize("case_path,batch", all_cases_with_batch)
 
+        metafunc.parametrize("case_path,batch", all_cases_with_batch)
+@pytest.fixture(scope="session")
+def global_test_case_info():
+    with open("config/test_case_info.pkl", "rb") as f:
+        test_case_info = pickle.load(f)
+    #print(f"\n===== 开始打印序列化的test_case_info内容 =====")
+    #print(test_case_info)
+    return test_case_info
 
 if __name__ == "__main__":
     # 解析命令行参数
@@ -239,7 +275,7 @@ if __name__ == "__main__":
     # 新增 Allure 报告路径配置（默认：allure-results）
     parser.add_argument(
         "-a", "--alluredir",
-        help="指定 Allure 结果文件路径（默认：allure_results）",
+        help="指定 Allure 结果文件路径（默认：reports/allure_results）",
         type=str,
         default="reports/allure_results"
     )
@@ -270,14 +306,14 @@ if __name__ == "__main__":
     os.environ["SHELL_SCRIPT_PATH"] = full_process_start
     #os.environ["STOP_SCRIPT_PATH"] = full_process_stop
 
-    pytest_args = ["-v",  __file__]  # "--capture=tee-sys", ： 捕获 stdout/stderr 输出（用于报告生成）
+    pytest_args = ["-v",  __file__, "-p no:warnings"]  # "--capture=tee-sys", ： 捕获 stdout/stderr 输出（用于报告生成）
 
     # 生成 Allure 原始结果（用于后续渲染报告）和重跑参数
-    pytest_args.extend([f"--alluredir={args.alluredir}", "--reruns=1", "--reruns-delay=2"])
+    pytest_args.extend([f"--alluredir={args.alluredir}", "--clean-alluredir", "--reruns=1", "--reruns-delay=2"])
 
     if args.report:
         pytest_args.extend([f"--html={args.report}", "--self-contained-html"])
-            
+    
     # 执行测试
     exit_code = pytest.main(pytest_args)
 

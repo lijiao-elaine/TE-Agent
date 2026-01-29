@@ -476,6 +476,7 @@ class ScreenshotHandler:
         window_id = window_ids.split()[0]
         #print(f"找到的目标终端窗口ID：{window_ids}，匹配的第一个终端窗口ID：{window_id}, 终端名字：{terminal_name}")
 
+        screenshot_name_origin = screenshot_name
         all_empty = all(element == '' for element in expected_keywords)
         if not expected_keywords or all_empty:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -492,14 +493,16 @@ class ScreenshotHandler:
             ScreenshotHandler.delete_control_and_ansi(log_file+".origin",log_file)  
             
             for keyword in expected_keywords:
-                
+                screenshot_name = screenshot_name_origin
                 # 8. 定位目标文本所在行
                 target_reverse_line, target_line, target_content = ScreenshotHandler.find_target_line_in_output(log_file, keyword)
                 if not target_line:
                     #print(f"未在终端输出中找到目标文本：'{keyword}'")
-                    continue
+                    #####change by lihaibo#######
+                    #continue
+                    screenshot_name="failure"+screenshot_name_origin
 
-                # 20260128. 将对terminal回滚截图，改成：拉起xterm终端，用于cat终端输出的日志文件grep预期输出结果，然后截图
+                # 20260128. 将对terminal回滚截图，改成：拉起新的xterm终端，cat终端输出的日志文件并grep预期输出结果后截图
                 terminal_name_logfile = f"view_logfile"
                 core_cmd = f"cat {log_file} | grep -C 10 -F -- '{keyword}'"
                 terminal_commands = (

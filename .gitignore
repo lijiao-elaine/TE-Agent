@@ -46,10 +46,19 @@ Thumbs.db
 
 # Project specific
 test_documentation.md
+*.md
 !README.md
 build/
 logs/
+result/
 reports/
+reports/*
+reports/test_report.docx
+reports/test_report.html
+sample/
+sample/*
+sample/display-GD-Agent-tool/main
+sample/display-GD-Agent-tool/test.c
 scripts/
 sample/full_process_fullprocess.log
 sample/full_process_fullprocess.log.bak
@@ -58,6 +67,9 @@ sample/full_process_test.log.bak
 sample/logfile.txt
 sample/nohup.out
 *.log
+TE-Agent_streamlit-v1.py
+TE-Agent_streamlit-v2.py
+TE-Agent_streamlit-v3-only-TE-Agent.py
 
 # CMake build directories
 examples/*/build/

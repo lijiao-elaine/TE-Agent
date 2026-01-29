@@ -1,3 +1,4 @@
+import re
 import subprocess
 import os
 import sys
@@ -6,6 +7,7 @@ from datetime import datetime
 from typing import Dict, List, Tuple, Optional, Any
 import tempfile
 import pdb
+from collections import deque
 
 class SubprocessManager:
     def __init__(self):
@@ -47,7 +49,8 @@ class SubprocessManager:
         remote_ip: str,
         remote_user: str,
         remote_passwd: str,
-        remote_hdc_port:str
+        remote_hdc_port:str,
+        remote_exit_code:str
         ) -> List[str]:
         """根据操作系统生成启动终端的命令（含输出重定向）"""
         # 构造可执行程序的命令（输出重定向到文件，同时终端显示）;不同终端的命令格式差异较大，需要针对性处理
@@ -77,7 +80,7 @@ class SubprocessManager:
                         'bash --rcfile ~/.bashrc_no_title --noprofile'
                     )
                 else:
-                    terminal_commands = (# ./main nok，没起来； ./unit_test ok, 所有命令都重定向到日志文件
+                    terminal_commands = (# ./改成后台执行也可以：f'({exec_cmd}) 2>&1 | tee -a {output_file} & pid=$!; wait $pid;exit_code=$?; echo \"退出码：\"$exit_code | tee -a {output_file};' 
                         'export TERM=xterm-256color; '  # 强制终端类型为xterm，解析功能键
                         'stty cooked; '  # 强制熟模式
                         # 全局重定向：将整个脚本的输出写入日志
@@ -86,7 +89,7 @@ class SubprocessManager:
                         'short_pwd=$(echo "$PWD" | sed "s|^$HOME|~|"); '
                         f'echo -n "$USER@$HOSTNAME:$short_pwd$ "| tee -a {output_file}; '  # 打印命令提示符（不换行）
                         f'echo \"{exec_cmd}\"| tee -a {output_file}; '
-                        f"({exec_cmd}) 2>&1 | tee -a {output_file};"
+                        f'({exec_cmd}) 2>&1 | tee -a {output_file}; echo "退出码：$?" | tee -a {output_file};'
                         'bash --rcfile ~/.bashrc_no_title --noprofile'
                     )
                 return [ # xterm终端的declare -x打印是bash -c 带来的，改成bash -c '{terminal_commands}' 2>&1 | grep -v '^declare -x'即可
@@ -103,7 +106,7 @@ class SubprocessManager:
                         expect_commands = ( 
                             'export TERM=xterm-256color; '
                             f'expect -c "set timeout 30; '
-                            f'spawn ssh {remote_user}@{remote_ip}; '
+                            f'spawn ssh -p 22 {remote_user}@{remote_ip}; '
                             'expect { \n'
                             '   \\"Are you sure you want to continue connecting (yes/no)?\\" { send \\"yes\\r\\"; exp_continue; } \n'
                             '   -re {[Pp]assword:?\\s*|口令:?\\s*} { send \\"' + remote_passwd + '\\r\\"; exp_continue; } \n'
@@ -118,12 +121,12 @@ class SubprocessManager:
                         expect_commands = ( 
                             'export TERM=xterm-256color; '
                             f'expect -c "set timeout 30; '
-                            f'spawn ssh {remote_user}@{remote_ip}; '
+                            f'spawn ssh -p 22 {remote_user}@{remote_ip}; '
                             'expect { \n'
                             '   \\"Are you sure you want to continue connecting (yes/no)?\\" { send \\"yes\\r\\"; exp_continue; } \n'
                             '   -re {[Pp]assword:?\s*|口令:?\s*} { send \\"' + remote_passwd + '\\r\\"; exp_continue; } \n'
                             '   \\"Permission denied\\" { exit 1; } \n'
-                            '   -re {[#$]\s*} { send \\"(cd ' + cwd + ';' + exec_cmd + ') 2>&1 | tee -a -;\\r\\"; interact; } \n'
+                            '   -re {[#$]\s*} { send \\"(cd ' + cwd + ';' + exec_cmd + ') 2>&1 ; echo "退出码："\\$? | tee -a -;\\r\\"; interact; } \n'
                             '}; '
                             'interact" 2>&1 | tee -a ' + output_file + '; '
                             'bash --rcfile ~/.bashrc_no_title --noprofile'
@@ -141,7 +144,7 @@ class SubprocessManager:
                             f'  echo "错误：未找到鸿蒙设备 {remote_ip}，请检查hdc连接" | tee -a {output_file}; '
                             '  bash --rcfile ~/.bashrc_no_title --noprofile; '
                             'else '
-                            f'  hdc -t {remote_ip}:{remote_hdc_port} shell "(cd {cwd};{escaped_exec_cmd}) 2>&1 | tee -a -" 2>&1 | tee -a {output_file}; '# 执行命令：子shell包裹
+                            f'  hdc -t {remote_ip}:{remote_hdc_port} shell "(cd {cwd};{escaped_exec_cmd};) 2>&1 ; echo "退出码："\\$? | tee -a -" 2>&1 | tee -a {output_file}; '# 执行命令：子shell包裹
                             f'  echo "命令执行完成，终端保持打开状态..." | tee -a {output_file}; '
                             '  bash --rcfile ~/.bashrc_no_title --noprofile; ' # 保活
                             'fi'
@@ -226,7 +229,7 @@ class SubprocessManager:
                     "-geometry", f"120x{terminal_line_num}",
                     "-e", wrapper_script, cmd_script
                 ]
-            else: # 本地运行TE-Agent工具，下位机执行用例可执行程序
+            else: # 本地运行TE-Agent工具，下位机执行用例可执行程序，远程执行命令，并将退出码和错误信息回传
                 escaped_exec_cmd = self.escape_special_chars(exec_cmd) # 对exec_cmd进行转义处理
                 remote_error_file = f"/tmp/{remote_ip}_{terminal_name}_remote_command_error_{timestamp}.tmp"
                 remote_exit_code = f"/tmp/{remote_ip}_{terminal_name}_remote_exit_code_{timestamp}.tmp"
@@ -268,7 +271,7 @@ class SubprocessManager:
                             # 1. 执行远程命令并获取退出码,先用bash处理文件判断，再调用expect处理交互
                             expect -c '
                             set timeout 30
-                            spawn ssh {remote_user}@{remote_ip}
+                            spawn ssh -p 22 {remote_user}@{remote_ip}
                             expect {{
                                 "Are you sure you want to continue connecting (yes/no)?" {{
                                     send "yes\\r"
@@ -291,7 +294,7 @@ class SubprocessManager:
 
                             # 2. 用bash处理退出码文件传输（避免在expect中使用bash语法）
                                 expect -c '
-                                spawn scp {remote_user}@{remote_ip}:{remote_exit_code} {exit_code_file}
+                                spawn scp -p 22 {remote_user}@{remote_ip}:{remote_exit_code} {exit_code_file}
                                 expect {{
                                     -re {{[Pp]assword:?\\s*|口令:?\\s*}} {{
                                         send "{remote_passwd}\\r"
@@ -305,7 +308,7 @@ class SubprocessManager:
                                 exit_code=$(cat {exit_code_file})
                                 if [ $exit_code -ne 0 ]; then
                                     expect -c '
-                                    spawn scp {remote_user}@{remote_ip}:{remote_error_file} {error_output_file}
+                                    spawn scp -p 22 {remote_user}@{remote_ip}:{remote_error_file} {error_output_file}
                                     expect {{
                                         -re {{[Pp]assword:?\\s*|口令:?\\s*}} {{
                                             send "{remote_passwd}\\r"
@@ -318,7 +321,7 @@ class SubprocessManager:
                                 
                                 # 清理远程文件
                                 expect -c '
-                                spawn ssh {remote_user}@{remote_ip} "rm -f {remote_exit_code} {remote_error_file}"
+                                spawn ssh -p 22 {remote_user}@{remote_ip} "rm -f {remote_exit_code} {remote_error_file}"
                                 expect {{
                                         -re {{[Pp]assword:?\\s*|口令:?\\s*}} {{
                                             send "{remote_passwd}\\r"
@@ -487,6 +490,10 @@ class SubprocessManager:
 
             output_abs_path = self.create_log_file(log_path, log_file)
 
+            # 创建唯一的临时文件名前缀，避免多实例冲突
+            timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+            remote_exit_code = f"/tmp/{remote_ip}_{terminal_name}_remote_exit_code_{timestamp}.tmp"
+            remote_error_file = f"/tmp/{remote_ip}_{terminal_name}_remote_command_error_{timestamp}.tmp"
             # 生成终端命令
             terminal_cmd = self._get_terminal_command(
                 exec_cmd, 
@@ -499,7 +506,8 @@ class SubprocessManager:
                 remote_ip,
                 remote_user,
                 remote_passwd,
-                remote_hdc_port
+                remote_hdc_port,
+                remote_exit_code
                 )
 
             if remote_ip == "127.0.0.1" and len(cwd)>0:
@@ -519,8 +527,22 @@ class SubprocessManager:
                     stderr=subprocess.PIPE,
                     text=True
                     )
-            time.sleep(sleep_time)  # 有时如果terminal_cmd中拉起的程序是非阻塞式的，即运行后立马退出的，则需要留出时间给它执行
+            if not blocked_process:
+                while(True):
+                    time.sleep(1)
+                    with open(output_abs_path, "r") as f:
+                        lines = deque(f, maxlen=10)
+                    f.close()
+                    match = re.search(r"退出码：\d+", " ".join(lines))
 
+                    print(match)
+                    if match:
+                        exit_code = int(match.group(0).split("：")[-1])
+                        break
+            else:
+                time.sleep(sleep_time)  # 有时如果terminal_cmd中拉起的程序是非阻塞式的，即运行后立马退出的，则需要留出时间给它执行
+            # print("????????????????????????/",exit_code)
+            # exit(0)
             # 保存子流程对象，便于后续管理
             self.subprocesses.append((proc, output_abs_path))
             #print(f"起xterm终端的子进程id为：{proc.pid}")
@@ -546,6 +568,36 @@ class SubprocessManager:
             return ""
         with open(output_file, "r", encoding="utf-8", errors="ignore") as f:
             return f.read()
+
+    def capture_output_file_support_read_remote(self, output_file: str, remote_os: str, remote_ip: str, remote_user: str,
+        remote_passwd: str, remote_hdc_port:str,) -> str:
+        """读取子进程输出文件的内容（实时捕获输出）"""
+        if remote_ip == "127.0.0.1":
+            if not os.path.exists(output_file):
+                print(f"子进程的实时输出日志或用例要检查的被测系统日志不存在：{output_file}, 可能该步骤未成功拉起xterm终端或被测程序执行不成功")
+                return ""
+            with open(output_file, "r", encoding="utf-8", errors="ignore") as f:
+                return f.read()
+        else:
+            print("待扩展：远程鸿蒙和非鸿蒙系统执行用例时，读取待检查预期结果的被测系统日志内容")
+            exec_cmd = f"cat {output_file}"
+            terminal_name = "cat_remote_file"
+            expected_logfile = "logs/expected_logfile_cat_result.log"
+            #os.system(f"rm -f {expected_logfile}") # 先清空，避免读取上个用例的日志
+            os.remove(expected_logfile) if os.path.exists(expected_logfile) else None
+            terminal_cmd = self._get_terminal_command(exec_cmd, terminal_name, expected_logfile, 40, 0,
+                "", remote_os, remote_ip, remote_user, remote_passwd, remote_hdc_port)
+            result = subprocess.Popen(
+                    terminal_cmd,
+                    shell=False,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True
+                    )
+            time.sleep(3)
+            os.kill(result.pid, 9)
+            with open(expected_logfile, "r", encoding="utf-8", errors="ignore") as f:
+                return f.read()
 
     def close_all_xterm(self):
         """关闭所有 xterm 终端"""

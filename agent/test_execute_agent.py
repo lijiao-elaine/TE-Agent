@@ -16,7 +16,7 @@ from typing import Dict, Any
 from dataclasses import dataclass
 
 @dataclass
-class TestExecuteAgent:
+class ExecuteAgent:
     """测试执行代理类，封装LangGraph工作流及状态管理"""
     
     def __post_init__(self):
