@@ -31,6 +31,8 @@ word_documents:
   result_output_file: "reports/test_report.docx"  # 填充结果后的文档
   screenshots_file: "template/title_file.docx"
   screenshots_output_file: "reports/title_file_output.docx"
+  test_report_allInOne: "reports/test_report_allInOne.docx"
+
 # 软件问题报告单Word文档路径配置
 issue_report:
   issue_report_template: "template/issue_report_template.docx"  # 问题报告单模板文档（可选，如不存在则自动生成）

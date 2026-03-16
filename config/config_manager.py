@@ -59,7 +59,7 @@ class ConfigManager:
 
     def get_original_word_file(self) -> str:
         """获取原始测试用例Word文档路径"""
-        return self.get("word_documents.original_template_file", "merged_word.docx")
+        return self.get("word_documents.original_template_file", "template/merged_word.docx")
 
     def get_result_word_file(self) -> str:
         """获取填充结果后的Word文档路径"""
@@ -67,7 +67,7 @@ class ConfigManager:
 
     def get_screenshots_word_file(self) -> str:
         """获取填充结果后的Word文档路径"""
-        return self.get("word_documents.screenshots_file", "title_file.docx")
+        return self.get("word_documents.screenshots_file", "template/title_file.docx")
 
     def get_screenshots_output_file(self) -> str:
         """获取填充结果后的Word文档路径"""
@@ -144,6 +144,14 @@ class ConfigManager:
     def get_software_version(self) -> str:
         """获取软件版本"""
         return self.get("issue_report.software_version", "Xxx-0127")
+
+    def get_test_report_allinone_file(self) -> str:
+        """获取汇总报告文档路径"""
+        return self.get("word_documents.test_report_allInOne", "reports/test_report_allInOne.docx")
+
+    def get_screenshots_output_file(self) -> str:
+        """获取截图输出文档路径"""
+        return self.get("word_documents.screenshots_output_file", "reports/title_file_output.docx")
 
     def save_config(self) -> None:
         """保存当前配置到文件（用于动态修改配置后持久化）"""

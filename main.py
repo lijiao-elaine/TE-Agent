@@ -12,10 +12,12 @@ from agent.test_execute_agent import ExecuteAgent
 from test_case_manager.test_case_manager import CaseManager
 from config.config_manager import ConfigManager  # 导入配置管理器
 from utils.command_executor import CommandExecutor
+from utils.word_document_merger import generate_all_in_one_report
 import os
 import subprocess
 import time
 import pickle
+import json
 from allure_commons.types import AttachmentType
 
 # 全局变量：记录执行状态
@@ -252,6 +254,66 @@ def global_test_case_info():
     #print(test_case_info)
     return test_case_info
 
+
+def generate_summary_report(exit_code: int, total_cases: int, alluredir: str, config_manager) -> None:
+    """
+    生成测试汇总报告
+    :param exit_code: pytest退出码
+    :param total_cases: 总用例数
+    :param alluredir: Allure结果目录
+    :param config_manager: 配置管理器
+    """
+    # 根据exit_code计算通过/失败用例数
+    # exit_code: 0=全部通过, 1=有失败, 2=测试执行错误, 3=内部错误, 4=pytest命令使用错误, 5=无测试收集到
+    if exit_code == 0:
+        passed_cases = total_cases
+        failed_cases = 0
+    else:
+        # 如果有失败，从allure结果目录统计
+        try:
+            allure_results_dir = Path(alluredir)
+            if allure_results_dir.exists():
+                result_files = list(allure_results_dir.glob("*.json"))
+                failed_cases_count = 0
+                for result_file in result_files:
+                    try:
+                        with open(result_file, 'r', encoding='utf-8') as f:
+                            result_data = json.load(f)
+                            status = result_data.get('status', '')
+                            if status in ['failed', 'broken']:
+                                failed_cases_count += 1
+                    except:
+                        pass
+                failed_cases = failed_cases_count
+                passed_cases = total_cases - failed_cases
+            else:
+                # 如果无法获取详细结果，保守估计
+                passed_cases = 0
+                failed_cases = total_cases
+        except Exception as e:
+            print(f"统计测试结果时出错: {e}")
+            passed_cases = 0
+            failed_cases = total_cases
+    
+    # 问题单数量等于失败用例数
+    issue_count = failed_cases
+    
+    # 生成汇总报告
+    try:
+        test_stats = {
+            "total_cases": total_cases,
+            "passed_cases": passed_cases,
+            "failed_cases": failed_cases,
+            "issue_count": issue_count
+        }
+        all_in_one_report_path = generate_all_in_one_report(config_manager, test_stats)
+        if all_in_one_report_path:
+            print(f"\n汇总报告已生成: {all_in_one_report_path}")
+    except Exception as e:
+        print(f"生成汇总报告时出错: {e}")
+        traceback.print_exc()
+
+
 if __name__ == "__main__":
     # 解析命令行参数
     parser = argparse.ArgumentParser(description="测试用例执行工具")
@@ -295,6 +357,9 @@ if __name__ == "__main__":
         filtered_cases2 = get_test_cases_by_module(args.module, "full_process_test")
 
     print(f"单元测试用例,共{len(filtered_cases)}个; 全流程测试用例，共{len(filtered_cases2)}个")
+    
+    # 计算总用例数
+    total_cases = len(filtered_cases) + len(filtered_cases2)
 
     config_manager = ConfigManager()
     full_process_start = config_manager.get_full_process_start_script()
@@ -337,6 +402,9 @@ if __name__ == "__main__":
             run_full_process_script(stop_script_path)
         else:
             print(f"警告：stop全流程的脚本不存在 - {stop_script_path}")
+    
+    # 生成汇总报告
+    generate_summary_report(exit_code, total_cases, args.alluredir, config_manager)
     
     # 本地直接渲染 Allure 报告（执行后自动打开浏览器）。可在调试时按需打开，后续批量执行或集成到jenkins流水线后需要注释
     #if os.path.exists(args.alluredir):
