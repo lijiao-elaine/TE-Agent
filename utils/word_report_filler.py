@@ -239,13 +239,14 @@ class WordReportFiller:
                             elif step_idx + 1 <= step_num: # 预处理成功，但仅执行了 step_num 个测试步骤，也只回填这些步骤的结果
                                 if step_results[step_idx]["step_result"] == "通过":
                                     for para in cell.paragraphs:
-                                        para.text = para.text.replace("□通过", "☑通过")
+                                        para.text = para.text.replace("□通过", "□通过") # 20260312：因需求变更，不需要在每个步骤后面勾选执行结果；"□通过", "☑通过"
                                 else:
                                     for para in cell.paragraphs:
-                                        para.text = para.text.replace("□不通过", "☑不通过")
+                                        para.text = para.text.replace("□不通过", "□不通过") # 20260312：因需求变更，不需要在每个步骤后面勾选执行结果;"□不通过", "☑不通过"
                                 #print(f"步骤{row.cells[0].text}的执行结果，回填入用例表格第{row_idx + 1}行第{col_idx + 1}列")
 
-                                # 回填每个步骤的截图, 在"其它____"后追加
+                                # 回填每个步骤的截图, 在"其它____"后追加； 20260312：因需求变更，不需要在每个步骤后面插入失败截图，暂时注释
+                                '''
                                 screenshot_paths = step_results[step_idx].get("screenshot_path", [])
                                 if screenshot_paths and isinstance(screenshot_paths, list):
                                     WordReportFiller.insert_images_after_placeholder(
@@ -254,6 +255,7 @@ class WordReportFiller:
                                         placeholder="其它____",
                                         max_width=1.0  # 图片最大宽度
                                     )
+                                '''
                             else:
                                 pass
                             result_len -= 1

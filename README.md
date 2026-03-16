@@ -143,16 +143,16 @@ python main.py -m test_cases/unit_test/module_1
 
 3. 执行单个用例的场景：
 ```bash
-python main.py -t test_cases/unit_test/test_case_1.json
+python main.py -t test_cases/unit_test/module_1/XXX_TEST_002.json
 ```
 或
 ```bash
-python main.py --testcase test_cases/unit_test/test_case_1.json
+python main.py --testcase test_cases/unit_test/XXX_TEST_001.json
 ```
 
 ### 参数说明
 
-- `-t`: 待执行的单个测试用例路径 (可选，如：test_cases/unit_test/test_case_1.json)
+- `-t`: 待执行的单个测试用例路径 (可选，如：test_cases/unit_test/XXX_TEST_001.json)
 - `-m`: 待执行的测试用例模块 (可选，如：test_cases/unit_test/module_1)
 - `-r`: 生成的测试报告路径 (可选，默认: reports/test_report.html)
 
