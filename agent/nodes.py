@@ -12,6 +12,7 @@ import glob
 from utils.command_executor import CommandExecutor
 from utils.screenshot_handler import ScreenshotHandler
 from utils.word_report_filler import WordReportFiller
+from utils.issue_report_filler import IssueReportFiller
 from agent.state import TestState
 from config.config_manager import ConfigManager  # 导入配置管理器
 import subprocess
@@ -404,10 +405,31 @@ def run_fill_result(state: TestState) -> Dict:
                     "overall_result": overall_result
                 }
             )
-            if result: 
+            if result:
                 state.add_log(f"测试截图已回填至: {config_manager.get_screenshots_output_file()}")
             else:
                 state.add_error(f"测试截图回填word测试截图报告文档失败")
+
+        # 回填失败用例到问题报告单
+        if overall_result != "通过":
+            try:
+                issue_filler = IssueReportFiller(config_manager)
+                case_result_for_issue = {
+                    "case_id": case_config["case_id"],
+                    "case_name": case_config["case_name"],
+                    "module": case_config.get("module", "XXX"),
+                    "execution_steps": state.case_result["steps"],
+                    "overall_result": "不通过",  # 统一使用"不通过"作为结果
+                    "pre_commands": case_config.get("pre_commands", []),
+                }
+                result = issue_filler.append_failed_case(case_result_for_issue)
+                if result:
+                    state.add_log(f"失败用例已回填至问题报告单: {config_manager.get_issue_report_output()}")
+                else:
+                    state.add_error(f"回填问题报告单返回空结果")
+            except Exception as e:
+                error_msg = f"回填问题报告单失败: {str(e)}\n{traceback.format_exc()}"
+                state.add_error(error_msg)
 
         return {
             "case_result": state.case_result

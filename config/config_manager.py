@@ -129,6 +129,22 @@ class ConfigManager:
         """获取终止全流程脚本路径"""
         return self.get("script.stop_full_process_script", "")
 
+    def get_issue_report_template(self) -> str:
+        """获取问题报告单模板文档路径"""
+        return self.get("issue_report.issue_report_template", "template/issue_report_template.docx")
+
+    def get_issue_report_output(self) -> str:
+        """获取问题报告单输出文档路径"""
+        return self.get("issue_report.issue_report_output", "reports/issue_report.docx")
+
+    def get_issue_reporter(self) -> str:
+        """获取报告人"""
+        return self.get("issue_report.reporter", "XXX")
+
+    def get_software_version(self) -> str:
+        """获取软件版本"""
+        return self.get("issue_report.software_version", "Xxx-0127")
+
     def save_config(self) -> None:
         """保存当前配置到文件（用于动态修改配置后持久化）"""
         with open(self.config_path, "w", encoding="utf-8") as f:
