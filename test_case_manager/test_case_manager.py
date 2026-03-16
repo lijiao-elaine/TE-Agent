@@ -41,7 +41,7 @@ class CaseManager:
         
         # 递归查找所有.json文件, rglob模式会匹配所有子目录
         json_files = list(self.test_cases_dir.rglob("*.json"))
-        random.shuffle(json_files) # 打乱列表顺序（原地修改）
+        #random.shuffle(json_files) # 打乱列表顺序（原地修改）
         
         if not json_files:
             print(f"警告: 在 {self.test_cases_dir.absolute()} 及其子目录中未找到任何JSON用例文件")
